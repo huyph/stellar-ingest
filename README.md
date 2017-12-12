@@ -1,5 +1,12 @@
 # stellar-ingest - Stellar data ingestion module.
 
+## Build status
+
+|Branch|Status|
+|:-----|:----:|
+|*master*|[![Build Status](https://travis-ci.org/data61/stellar-ingest.svg?branch=master)](https://travis-ci.org/data61/stellar-ingest)|
+|*devel*|[![Build Status](https://travis-ci.org/data61/stellar-ingest.svg?branch=devel)](https://travis-ci.org/data61/stellar-ingest)|
+
 ## License
 
 Copyright 2017 CSIRO Data61
