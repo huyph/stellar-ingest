@@ -1,0 +1,58 @@
+id,filmtitle,year,cast1,cast2,cast3,crew1,crew2,crew3,genre,foreign,corporation
+18,Click,2006,Adam Sandler,Kate Beckinsale,Christopher Walken,Frank Coraci,Steve Koren,Mark O'Keefe,Romance,false,Lionsgate
+19,Funny People,2009,Adam Sandler,Seth Rogen,Leslie Mann,Judd Apatow,Judd Apatow,Judd Apatow,Drama,false,20th Century Fox
+20,Mr. Deeds,2002,Adam Sandler,Winona Ryder,John Turturro,Sid Ganis,Jack Giarraputo,Teddy Castellucci,Romance,false,Universal
+21,The Vicious Kind,2009,Adam Scott,Brittany Snow,Alex Frost,Lee Toland Krieger,Lee Toland Krieger,Jeff Cardoni,Drama,false,Universal
+22,One Dark Night,1983,Adam West,Meg Tilly,David Mason Daniels,Michael Hawes,Thomas P. Johnson,Tom McLoughlin,Horror,false,Pixar
+23,At The Tattooist,2010,Adelaide Clemens,Alycia Debnam-Carey,Cariba Heine,Sophie Miller,Sophie Miller,Jena Woodburn,Other,false,Universal
+24,Baana Kaathadi,2010,Adharvaa Murali,Prasanna,Samantha Ruth Prabhu,Badri Venkatesh,Badri Venkatesh,Yuvan Shankar Raja,Thriller,false,Universal
+25,Friends and Lovers,1931,Adolphe Menjou,Lili Damita,Laurence Olivier,Victor Schertzinger,Jane Murfin,Wallace Smith,Romance,false,Pixar
+26,Here We for Example...,1977,Adriano Celentano,Renato Pozzetto,Barbara Bach,Sergio Corbucci,Giuseppe Catalano,Sabatino Ciuffini,Comedy,false,Universal
+27,Unholy,2007,Adrienne Barbeau,Nicholas Brendon,Siri Baruc,Daryl Goldberg,Sam Freeman,Kim Koby,Thriller,false,Lionsgate
+28,Dementia,1955,Adrienne Barrett,Ben Roseman,Bruno VeSota,John Parker,Bruno VeSota,John Parker,Horror,false,20th Century Fox
+29,The Big Chance,1957,Adrienne Corri,William Russell,Ian Colin,Peter Graham Scott,Barbara S. Harper,Peter Graham Scott,Crime,false,Pixar
+30,The Career of a Chambermaid,1976,Agostina Belli,Cochi Ponzoni,Maurizio Arena,Dino Risi,Dino Risi,Ruggero Maccari,Romance,false,Universal
+31,The Soul Guardians,1998,Ahn Sung-Ki,Hyeon-jun Shin,Hyun-chul Oh,Kwang-chun Park,Woo-hyouk Lee,Kwang-chun Park,Thriller,true,20th Century Fox
+32,Crusoe,1988,Aidan Quinn,Ade Sapara,Elvis Payne,Caleb Deschanel,Walon Green,Daniel Defoe,Drama,false,20th Century Fox
+33,Reckless,1984,Aidan Quinn,Daryl Hannah,Jennifer Grey,James Foley,Chris Columbus,Scott Rudin,Romance,false,Marvel Studios
+34,Annie,1982,Aileen Quinn,Albert Finney,Carol Burnett,John Huston,Carol Sobieski,Thomas Meehan,Music,false,Marvel Studios
+35,Kino no Tabi: The Beautiful World,2007,Ai Maeda,Ryuji Aigase,Ayako Kawasumi,Ryutaro Nakamura,Keiichi Sigsawa,Yoshiaki Itou,Fantasy,false,Universal
+36,Kino's Journey: Life Goes On,2005,Ai Maeda,Ryuji Aigase,Tetsuya Kawai,Takashi Watanabe,Takashi Watanabe,Sadayuki Murai,Fantasy,false,Universal
+37,Hum Dil De Chuke Sanam,1999,Aishwarya Rai Bachchan,Salman Khan,Ajay Devgan,Sanjay Leela Bhansali,Sanjay Leela Bhansali,Sanjay Leela Bhansali,Romance,false,Lionsgate
+38,Kyun...! Ho Gaya Na,2004,Aishwarya Rai Bachchan,Vivek Oberoi,Amitabh Bachchan,Samir Karnik,Boney Kapoor,Shankar Mahadevan,Romance,true,Universal
+39,Wild Roomies,2004,A.J. Buckley,Holly Fields,Jennifer Lyons,Oliver Robins,Michael Baumgarten,Kate McKinney,Romance,false,Marvel Studios
+40,The Nude Princess,1976,Ajita Wilson,Tina Aumont,Luigi Pistilli,Cesare Canevari,Antonio Lucarella,Cesare Canevari,Drama,false,Pixar
+41,Raja,2002,Ajith Kumar,Jyothika,Priyanka Trivedi,Ezhil,Ezhil,Thiruvenkatam,Drama,false,20th Century Fox
+42,Vaali,1999,Ajith Kumar,Simran,Jyothika,SJ. Surya,B. Lenin,V. T. Vijayan,Romance,false,Lionsgate
+43,Unnai Kodu Ennai Tharuven,2000,Ajith Kumar,Simran,Nasser,Kavee Kalidas,S A Rajkumar,R. B. Choudary,Romance,false,Lionsgate
+44,Search for the Jewel of Polaris: Mysterious Museum,1999,A.J. Trauth,Brianna Brown,Megan Lusk,David Schmoeller,Adam Wohl,Vlad Paunescu,Fantasy,false,Lionsgate
+45,The Microchip,2011,Akarin Akaranitimaytharatt,Pornwipa Watcharakaroon,Anuwat Tharapan,Krissanapong Rachata,Krissanapong Rachata,Chokchai Pechpanna,Comedy,false,Pixar
+46,Short Kut - The Con is On,2009,Akshaye Khanna,Arshad Warsi,Amrita Rao,Neeraj Vora,Rajat Rawail,Anil Kapoor,Other,false,Marvel Studios
+47,Humko Deewana Kar Gaye,2006,Akshay Kumar,Anil Kapoor,Bipasha Basu,Raj Kanwar,Raj Kanwar,Himesh Reshammiya,Romance,true,Universal
+48,Blue,2009,Akshay Kumar,Sanjay Dutt,Lara Dutta,A. R. Rahman,Anthony D'Souza,Dhilin Mehta,Thriller,true,Pixar
+49,Bhool Bhulaiyaa,2007,Akshay Kumar,Vidya Balan,Ameesha Patel,Priyadarshan,Madhu Muttam,Bhushan Kumar,Thriller,false,Marvel Studios
+50,Popi,1969,Alan Arkin,Rita Moreno,Reuben Figueroa,Arthur Hiller,Herbert B. Leonard,Dominic Frontiere,Drama,false,Marvel Studios
+51,The Return of the Soldier,1982,Alan Bates,Glenda Jackson,Ann-Margret,Alan Bridges,Hugh Whitemore,Rebecca West,Drama,false,Pixar
+52,The Red Beret,1953,Alan Ladd,Leo Genn,Susan Stephen,Terence Young,Albert R. Broccoli,Irving Allen,War,false,Universal
+53,And Now Tomorrow,1944,Alan Ladd,Loretta Young,Susan Hayward,Irving Pichel,Frank Partos,Raymond Chandler,Other,false,Lionsgate
+54,The Proud Rebel,1958,Alan Ladd,Olivia de Havilland,Dean Jagger,Michael Curtiz,Joseph Petracca,Lillie Hayward,Western,false,20th Century Fox
+55,Saskatchewan,1954,Alan Ladd,Shelley Winters,J. Carrol Naish,Raoul Walsh,Gil Doud,Gil Doud,Western,false,Pixar
+56,Saigon,1948,Alan Ladd,Veronica Lake,Douglas Dick,Leslie Fenton,Julian Zimet,Arthur Sheekman,Drama,false,20th Century Fox
+57,The Blue Dahlia,1946,Alan Ladd,Veronica Lake,William Bendix,George Marshall,Raymond Chandler,Lionel Lindon,Drama,false,Lionsgate
+58,Snow Cake,2006,Alan Rickman,Sigourney Weaver,Carrie-Anne Moss,Marc Evans,Angela Pell,Broken Social Scene,Romance,false,Pixar
+59,Casino Raiders,1989,Alan Tam,Andy Lau,Ida Chan,Jimmy Heung,Corey Yuen Kwai,Jimmy Heung,Thriller,true,Marvel Studios
+60,The Belles of St. Trinian's,1954,Alastair Sim,Alastair Sim,George Cole,Frank Launder,Frank Launder,Frank Launder,Foreign,true,Lionsgate
+61,Scrooge,1951,Alastair Sim,Kathleen Harrison,Mervyn Johns,Charles Dickens,Noel Langley,Brian Desmond Hurst,Fantasy,false,Lionsgate
+62,Innocents in Paris,1953,Alastair Sim,Ronald Shiner,Claire Bloom,Gordon Parry,Anatole de Grunwald,Anatole de Grunwald,Other,false,Lionsgate
+63,Mother,1996,Albert Brooks,Debbie Reynolds,Rob Morrow,Herb Nanas,Scott Rudin,Marc Shaiman,Comedy,false,Lionsgate
+64,Gammera the Invincible,1966,Albert Dekker,Brian Donlevy,Diane Findlay,Noriaki Yuasa,Richard Kraft,Nisan Takahashi,ScienceFiction,true,Pixar
+65,The Browning Version,1994,Albert Finney,Greta Scacchi,Matthew Modine,Mike Figgis,Terence Rattigan,Ronald Harwood,Foreign,true,20th Century Fox
+66,Night Must Fall,1964,Albert Finney,Mona Washbourne,Susan Hampshire,Karel Reisz,Emlyn Williams,Clive Exton,Thriller,false,Lionsgate
+67,Il mostro di Firenze,1986,Alberto Di Stasio,Leonard Mann,Leonard Mann,Cesare Ferrario,Fulvio Ricciardi,Cesare Ferrario,Thriller,true,Marvel Studios
+68,Catherine and I,1980,Alberto Sordi,Catherine Spaak,Valeria Valeri,Alberto Sordi,Alberto Sordi,Rodolfo Sonego,Comedy,true,20th Century Fox
+69,Buonanotte... avvocato!,1955,Alberto Sordi,Giulietta Masina,Mara Berni,Giorgio Bianchi,Giovanni Grimaldi,Ruggero Maccari,Other,true,Lionsgate
+70,Il medico della mutua,1968,Alberto Sordi,Sara Franchetti,Nanda Primavera,Luigi Zampa,Luigi Zampa,Sergio Amidei,Comedy,true,Lionsgate
+71,The Moralist,1959,Alberto Sordi,Vittorio De Sica,Maria Perschy,Giorgio Bianchi,Oreste Biancoli,Luciana Corda,Comedy,true,Pixar
+72,The Getaway,1994,Alec Baldwin,Kim Basinger,Michael Madsen,Roger Donaldson,Jim Thompson,Walter Hill,Thriller,false,20th Century Fox
+73,The Scapegoat,1959,Alec Guinness,Bette Davis,Nicole Maurey,Robert Hamer,Daphne Du Maurier,Robert Hamer,Thriller,false,Marvel Studios
+74,The Card,1952,Alec Guinness,Glynis Johns,Valerie Hobson,Ronald Neame,Arnold Bennett,Eric Ambler,Romance,false,Pixar
