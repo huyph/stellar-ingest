@@ -46,11 +46,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "corporation",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "produced",
@@ -60,11 +60,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "cast1",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "actedin",
@@ -74,11 +74,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "cast2",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "actedin",
@@ -88,11 +88,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "cast3",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "actedin",
@@ -102,11 +102,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "crew1",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "workedin",
@@ -116,11 +116,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "crew2",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "workedin",
@@ -130,11 +130,11 @@
             {
                 "@dest": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@src": {
                     "column": "crew3",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": {
                     "name": "workedin",
@@ -146,106 +146,106 @@
             {
                 "@id": {
                     "column": "id",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Film",
                 "classification": {
                     "column": "genre",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "isforeign": {
                     "column": "foreign",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "title": {
                     "column": "filmtitle",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "year": {
                     "column": "year",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "corporation",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Company",
                 "name": {
                     "column": "corporation",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "cast1",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Person",
                 "name": {
                     "column": "cast1",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "cast2",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Person",
                 "name": {
                     "column": "cast2",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "cast3",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Person",
                 "name": {
                     "column": "cast3",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "crew1",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Person",
                 "name": {
                     "column": "crew1",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "crew2",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Person",
                 "name": {
                     "column": "crew2",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             },
             {
                 "@id": {
                     "column": "crew3",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 },
                 "@type": "Person",
                 "name": {
                     "column": "crew3",
-                    "source": "resources/examples/imdb/imdb_small_2.csv"
+                    "source": "imdb_small.csv"
                 }
             }
         ]
     },
     "sources": [
-        "resources/examples/imdb/imdb_small_2.csv"
+        "imdb_small.csv"
     ]
 }

@@ -1,0 +1,53 @@
+;; Stellar-Ingest schema definition.
+;;
+;; This example is maintained in EDN form to simplify experimenting in Clojure
+;; and to have comments.
+
+(def scm
+  {:sources ["films.csv"
+             "persons.csv"
+             "corps.csv"
+             "producers.csv"
+             "actors.csv"
+             "staff.csv"],
+   
+   :graphSchema
+   {
+    :classes
+    [{:name "Film", :props {:title "string" :year "string", :classification "string" , :isforeign "boolean"}}
+     {:name "Person", :props {:name "string"}}
+     {:name "Company", :props {:name "string"}}]
+    
+    :classLinks
+    [{:name "actedin", :source "Person", :target "Film"}
+     {:name "workedin", :source "Person", :target "Film"}
+     {:name "produced", :source "Company", :target "Film"}]},
+   
+   :mapping
+   {
+    :nodes
+    [{:stellar-type "Film",
+      :stellar-id {:source "films.csv", :column "id"},
+      :title {:source "films.csv", :column "filmtitle"}
+      :year {:source "films.csv", :column "year"}
+      :classification {:source "films.csv", :column "genre"}
+      :isforeign {:source "films.csv", :column "foreign"}}
+     {:stellar-type "Company",
+      :stellar-id {:source "corps.csv", :column "corporation"},
+      :name {:source "corps.csv", :column "corporation"}}
+     {:stellar-type "Person",
+      :stellar-id {:source "persons.csv", :column "id"},
+      :name {:source "persons.csv", :column "stagename"}}],
+    
+    :links
+    [{:stellar-type {:source "Company", :name "produced"},
+      :stellar-src {:source "producers.csv", :column "corpname"},
+      :stellar-dest{:source "producers.csv", :column "filmid"}}
+     {:stellar-type {:source "Person", :name "actedin"},
+      :stellar-src {:source "actors.csv", :column "personid"},
+      :stellar-dest{:source "actors.csv", :column "filmid"}}
+     {:stellar-type {:source "Person", :name "workedin"},
+      :stellar-src {:source "staff.csv", :column "personid"},
+      :stellar-dest{:source "staff.csv", :column "filmid"}}] }}
+  
+  ) ;; End def scm

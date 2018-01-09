@@ -24,25 +24,47 @@
             ;; I/O.
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
+            ;; String manipulation
+            [clojure.string]
             ;; Category theory types.
             [cats.core :as cats]
             [cats.monad.either :as either]
             ;; Cheshire JSON library
             [cheshire.core :as json])
-  ;; (:import
-  ;;  (;; Stellar graph data structures and utilities
-  ;;   sh.serene.stellarutils.model.epgm
-  ;;   ;; ElementId    ;; ID object for graphs, vertices and edges
-  ;;   GraphHead    ;; Graph entry point
-  ;;   ;; VertexCollection  ;; Vertex object (not a Java-collection)
-  ;;   GraphCollectionBuilder
-  ;;   Properties) ;; Property map wrapper with simple accessors
-  ;;  )
   (:import
    (sh.serene.stellarutils.entities Properties)
    (sh.serene.stellarutils.graph.api StellarBackEndFactory StellarGraph StellarGraphBuffer)
    (sh.serene.stellarutils.graph.impl.local LocalBackEndFactory))
   (:gen-class))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Temporary  file utilities  - Must  be replaced  with portable  versions and
+;; moved to another namespace.
+
+;; TODO: import portable FS library and change these functions.
+
+(defn file-to-string [f]
+  (cond
+    (instance? java.io.File f) (.getPath f)
+    (instance? java.net.URL f) (.getPath f)
+    (instance? java.lang.String f) f
+    :else nil))
+
+(defn path-basename [f]
+  (let [f (file-to-string f)
+        v (clojure.string/split f #"/")
+        n (count v)]
+    (if (= n 1)
+      ""
+      (if (and (= n 2) (= (first v) ""))
+        "/"
+        (str (clojure.string/join "/" (subvec v 0 (- n 1))) "/")))))
+
+(defn path-filename [f]
+  (last (clojure.string/split (file-to-string f) #"/")))
+
+(defn make-path [base file]
+  (str (file-to-string base) (file-to-string file)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -54,11 +76,92 @@
    (clojure.java.io/reader file)
    (fn [k] (keyword (clojure.string/replace k #"^@" "stellar-")))))
 
+(defn write-schema [scm file]
+  (json/generate-stream
+   scm
+   (clojure.java.io/writer file)
+   {:key-fn (fn [k] (clojure.string/replace (name k) #"^stellar-" "@"))
+    :pretty true}))
 
 (defn load-csv
   ""
   [file]
   (deref (cats/fmap core/csv-data->maps (core/read-csv-data file))))
+
+(defn add-path-to-sources
+  [scm-file]
+  (let [scm (load-schema scm-file)
+        dir (path-basename scm-file)]
+    (into [] (map (partial make-path dir) (:sources scm)))))
+
+(defn get-subschema-by-source
+  [scm src]
+  (let [ns (filter #(= (-> % :stellar-id :source) src)
+                   (-> scm :mapping :nodes))
+        ls (filter #(= (-> % :stellar-src :source) src)
+                   (-> scm :mapping :links))]
+    (-> scm
+     (assoc-in [:mapping :nodes] (into [] ns))
+     (assoc-in [:mapping :links] (into [] ls)))))
+
+(defn load-project
+  [scm-file]
+  (let [dir (path-basename scm-file)
+        scm (load-schema scm-file)]
+    (into [] (zipmap 
+              (map (partial make-path dir) (:sources scm))
+              (map (partial get-subschema-by-source scm) (:sources scm))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Preprocess  the  schema  mapping,   making  node  type  information  redily
+;; available to the functions that instantiate links.
+
+;; This functionality is already present in preprocess-all-link-mappings.
+
+;; (defn add-node-types-to-link-mapping
+;;   "Give a link mapping map, lookup the node types in the schema and add them
+;;   to the mapping information."
+;;   [m]
+;;   (let [;; Get the link type t from the mapping.
+;;         t (:name (:stellar-type m))
+;;         ;; Using  the  schema  definition,  extract  source  (:source)  and
+;;         ;; destination (:target) node types for the current link type.
+;;         [s d] ((juxt :source :target)
+;;                ;; Find  the link  schema definition  corresponding to  name
+;;                ;; t. There  must be  only one  and we  extract it  from the
+;;                ;; vector returned by filter.
+;;                (first
+;;                 (filter
+;;                  (comp (partial = t) :name)
+;;                  (:classLinks (:graphSchema scm)))))]
+;;     ;; Add type fields to the mapping m (inside the stellar-scr/dest maps).
+;;     (-> m
+;;         (assoc-in [:stellar-src :type] s)
+;;         (assoc-in [:stellar-dest :type] d))))
+
+;; (defn add-node-types-to-all-link-mappings
+;;   "Given the original  schema, return the preprocessed version,  in which node
+;;   type information is added for each link mapping."
+;;   [scm]
+;;   (assoc-in scm [:mapping :links]
+;;             (into []
+;;                   (map
+;;                    add-node-types-to-link-mapping
+;;                    (-> scm :mapping :links)))))
+
+;; (comment
+;;   ;; Quick test: (diff a  b) returns (only in a, only in b,  in both).  For an
+;;   ;; addition to the schema we get: nil,  the newly added node type entries in
+;;   ;; the link  mappings and the original  schema. We check that  the schema is
+;;   ;; preserved.
+;;   ;;
+;;   ;; TODO: move this to the tests.
+;;   (require '[clojure.data])
+;;   (let [[old new both]
+;;         (clojure.data/diff scm 
+;;                            (add-node-types-to-all-link-mappings scm))]
+;;     (= both scm))
+;;   ) ;; End comment
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -310,24 +413,34 @@
       .write
       (.json path)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; With introduction of multi-source input the  schema is treated as a project
+;; file, from which  a project object is constructed. This  contains a list of
+;; the source files (full path) each with the corresponding subschema.
+
+(defn create-maps-from-project
+  [pro]
+  (let [;; Build node maps from all sources.
+        ns (map #(create-node-maps (second %) (load-csv (first %))) pro)
+        ;; Build link maps from all sources.
+        ls (map #(create-link-maps (second %) (load-csv (first %))) pro)]
+    {:nodes (into [] (flatten ns)) :links (into [] (flatten ls))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; To run it from a terminal use:
-;; java -cp /path/to/stellar-ingest-*-standalone.jar stellar_ingest.schema schema_file csv_file graph_label
+;; java -cp /path/to/stellar-ingest-*-standalone.jar stellar_ingest.schema schema_file graph_label
 ;;
 ;; Requested file path can be either absolute or relative to the directory the
-;; above command is issued in.
+;; above command is  issued in. The sources in the  schema should specified as
+;; files (without  directory) and are assumed  to be in the  same directory as
+;; the schema.
 
 (defn -main [& args]
-  (let [scm-file (first args)
-        dat-file (second args)
-        glabel (nth args 2)
-        scm (load-schema scm-file)
-        dat (load-csv dat-file)
-        graph (populate-graph
-               (create-node-maps scm dat)
-               (create-link-maps scm dat)
-               glabel)]
+  (let [glabel (second args)
+        scm-file (first args)
+        pro (load-project scm-file)
+        maps (create-maps-from-project pro)
+        graph (populate-graph (:nodes maps) (:links maps) glabel)]
     (write-graph-to-gdf graph (str "/tmp/" glabel ".gdf"))
     (write-graph-to-json graph (str "/tmp/" glabel ".json"))))
 
@@ -337,24 +450,15 @@
 
 (comment
 
-  (def scm-file (io/resource "examples/imdb/imdb_schema.json"))
-  (def dat-file (io/resource "examples/imdb/imdb_small.csv"))
-  (def scm (load-schema scm-file))
-  (def dat (load-csv dat-file))
-  scm
-  dat
+  (def scm-file (io/resource "examples/imdb_norm/imdb_norm_schema.json"))
+  ;; (def scm (load-schema scm-file))
+  ;; scm
+  (def pro (load-project scm-file))
+  pro
 
-  (def nodes (create-node-maps scm dat))
-  (def links (create-link-maps scm dat))
-
-  ;; (filter
-  ;;  (fn [x] (and
-  ;;           (= (:status x) nil)
-  ;;           ;; (= (:label x) "actedin"))
-  ;;    ))
-  ;;  (populate-graph nodes links "testg"))
-
-  (def graph (populate-graph nodes links "testg"))
+  (def maps (create-maps-from-project pro))
+  maps
+  (def graph (populate-graph (:nodes maps) (:links maps) "testg"))
 
   ;; graph.toGraph().toCollection().write().json("out.epgm");
   (-> graph
@@ -368,23 +472,75 @@
       .toCollection
       .write
       (.gdf "/tmp/testg.gdf"))
-  
+
+  ;; TODO:  for testing  if would  be nice  to have  fully reproducible  graph
+  ;; construction.  Must introduce debug functions  that sort the maps to make
+  ;; comparing them easier.  Also must ask Kevin to modify id creation, making
+  ;; it swappable.  We  can introduce a mock progressive-number  id that stays
+  ;; the same between runs (if things  are constructed in the same order). And
+  ;; a hash-based id, that is the same if  the object is the same and, in case
+  ;; of conflicts, has  defined ordering (e.g. hash order is  same as original
+  ;; lexicographic order). Also useful would be to allow passing ids, but that
+  ;; may  break  the interface...  (would  require  special versions  of  each
+  ;; function that take id  or a special property tag that  contains the id to
+  ;; use).
   
   ) ;; End comment
 
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; TODO:
+  ;;
+  ;; Current solutionu lets us build any graph easily. There's still the issue
+  ;; of using IDs of objects that don't exist yet... But can still be solved
+  ;; with doing first all vertex mappings the all edges.
 
+  ;; ;; Normalized example
+  ;; Person.csv: id name address
+  ;; Dog.csv: reg name breed
+  ;; Owner.csv: owner(=Person.id) dog(=Dog.reg)
+  ;;
+  ;; schema: owns: Owner.owner Owner.dog
 
+  ;; ;; Unnormalized example
+  ;; Person.csv: id name address dog1 dog2 dog3
+  ;; Dog.csv: reg name breed
+  ;;
+  ;; schema: owns: Person.id Person.dog1
+  ;; schema: owns: Person.id Person.dog2
+  ;; schema: owns: Person.id Person.dog3
 
+  ;; Later: we could could have a special marker for "subelement"
+  ;; that splits a list argument as edge destination and builds multiple.
+  
+  ;; YES:
+  ;; 1) 1 record of 1 file is always enough to build a vertex/edge!
+  ;; --> We go through all files twice. First run apply (to all files) vertex mappings
+  ;;     and second edge mappings.
+  ;;     This can be the first form of schema check we do... later schema should not allow.
+  ;;
+  ;; We can also accommodate NILs is CSVs by not building the corresponding edge.
+  ;;
+  ;; 2) Both forms speak for qualifying original IDs with vertex class
+  ;;    and not with source name.
+  ;;    2a) When normalized the source name has nothing to do with both IDs
+  ;;        which belong to different tables.
+  ;;    2b) When unnormalized the source ID is in the corresponding source, but
+  ;;        destination ID is somewhere else.
 
+  ;; Implementation works by preprocessing the schema. Nodes are loaded as
+  ;; expected, but the ids are fully qualified with the node type.
+  ;;
+  ;; Afterwards, for each link mapping, the schema definition (no the mapping)
+  ;; is looked up to the source and destination type are found, so the src and
+  ;; dest id can be fully qualified.
 
-
-
-
-
-
-
-
-
-
-
-
+  ;; TODO: Schema validation:
+  ;; - there's at least a mapping for each object to be created.
+  ;; - all fields are there
+  ;; - no nodes/link built from multiple sources
+  ;; - no duplicates in mappings (there may be more mapping for one type
+  ;;     but they shouldn't use all the same fields).
+  ;; - no duplicate names in the properties.
+  ;; - check that src and dst of links are ids of the 
+  ;; - every source-field pair used only once (i.e. in one mapping,
+  ;;     but same field could be id and a property).
