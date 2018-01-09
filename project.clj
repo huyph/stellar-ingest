@@ -23,14 +23,12 @@
                  ;; REST
                  [compojure "1.6.0"]
                  [ring/ring-defaults "0.3.1"]
-
                  [ring/ring-json "0.4.0" :exclusions [com.fasterxml.jackson.core/jackson-core]]
                  [ring/ring-jetty-adapter "1.6.2"]
                  ;; Compojure routes with swagger docs.
                  [metosin/compojure-api "2.0.0-alpha17"]
-                 ;; Stellar modules
-                 ;; [sh.serene/stellar-utils "1.1-SNAPSHOT"]
-                 [sh.serene/stellar-utils "1.2"]]
+                 ;; New utils: local memory backend.
+                 [sh.serene/stellar-utils "0.2.0-SNAPSHOT"]]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
             ;; Deploy to/retrieve from private artifact repository on S3.

@@ -29,15 +29,19 @@
             [cats.monad.either :as either]
             ;; Cheshire JSON library
             [cheshire.core :as json])
+  ;; (:import
+  ;;  (;; Stellar graph data structures and utilities
+  ;;   sh.serene.stellarutils.model.epgm
+  ;;   ;; ElementId    ;; ID object for graphs, vertices and edges
+  ;;   GraphHead    ;; Graph entry point
+  ;;   ;; VertexCollection  ;; Vertex object (not a Java-collection)
+  ;;   GraphCollectionBuilder
+  ;;   Properties) ;; Property map wrapper with simple accessors
+  ;;  )
   (:import
-   (;; Stellar graph data structures and utilities
-    sh.serene.stellarutils.model.epgm
-    ;; ElementId    ;; ID object for graphs, vertices and edges
-    GraphHead    ;; Graph entry point
-    ;; VertexCollection  ;; Vertex object (not a Java-collection)
-    GraphCollectionBuilder
-    Properties) ;; Property map wrapper with simple accessors
-   )
+   (sh.serene.stellarutils.entities Properties)
+   (sh.serene.stellarutils.graph.api StellarBackEndFactory StellarGraph StellarGraphBuffer)
+   (sh.serene.stellarutils.graph.impl.local LocalBackEndFactory))
   (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -215,11 +219,23 @@
    (for [l dat] (apply-all-link-mappings scm l))
    flatten))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 
-(defn populate-graph-collection-builder
+;; StellarBackEndFactory bef = new LocalBackEndFactory();
+;; StellarGraphBuffer graph = bef.createGraph("label", props=null);
+;;
+;; try-catch: for duplicated names
+;; for (v : vertices)
+;; 	graph.addVertex("name", "label", props);
+;;
+;; for (e : edges)
+;; 	graph.addEdge("name", "src name", "dst name", "label", props);
+;;
+;; graph.toGraph().toCollection().write().json("out.epgm");
+
+
+(defn populate-graph
   "This function  marks the  limit between the  the ingestor's  native clojure
   code and the  stellar.util java library.  Maps representing  nodes and links
   are  converted  to  the  corresponding   util  object  and  collected  in  a
@@ -227,10 +243,12 @@
   [vs  ;; Maps of vertices
    es  ;; Maps of edges
    gl] ;; Graph label
-  (let [;; Create a GraphCollectionBuilder object.
-        gcb (new GraphCollectionBuilder)
-        ;; Add a labelled graph to it and store the graph id.
-        gid (.addGraphHead gcb (.getMap (Properties/create)) gl)
+  (let [es (zipmap (range 0 (count es)) es)
+        ;;
+        grbef (new LocalBackEndFactory)
+        ;; 
+        graph (.createGraph grbef gl (.getMap (Properties/create)))
+
         ;; A  lookup table  of node  IDs is  created, to  track correspondence
         ;; between  stellar.util  node  identifiers and  the  original  source
         ;; identifiers.
@@ -240,21 +258,31 @@
         nid-lut (doall (map
                         (fn [v] (let [label (:label v)
                                       props (clj-map-to-properties (:props v))
-                                      oid (:__id (:props v))]
+                                      oid (str label (:__id (:props v)))]
                                   {:orig (str label oid)
-                                   :graph (.addVertex gcb props label (list gid))}))
+                                   :graph (try
+                                            (.addVertex graph oid label props)
+                                            (catch Exception e (str "caught exception: " (.getMessage e)))
+                                            (finally nil))}))
                         vs))]
     ;; After all nodes are created and appended, do the same with links.
     (doall (map
-            (fn [e] (let [label (:label e)
-                          src-orig (str (:src-label e) (:src-val e))
-                          dst-orig (str (:dst-label e) (:dst-val e))
-                          src-id (:graph (first (filter #(= src-orig (:orig %)) nid-lut)))
-                          dst-id (:graph (first (filter #(= dst-orig (:orig %)) nid-lut)))]
-                      (.addEdge gcb src-id dst-id (.getMap (Properties/create)) label (list gid))))
+            (fn [ed] (let [e (val ed)
+                           label (:label e)
+                           src-orig (str (:src-label e) (:src-val e))
+                           dst-orig (str (:dst-label e) (:dst-val e))
+                           edgeid (str (key ed))]
+                      {:label label :src src-orig :dst dst-orig :status
+                       (try 
+                         (.addEdge graph edgeid src-orig dst-orig label (.getMap (Properties/create)))
+                         (catch Exception e)
+                         (finally nil)
+                         )}))
             es))
-    ;; Return the GraphCollectionBuilder
-    gcb))
+    ;; Return the  Graph. If this is  commented out, the edge  lookup table is
+    ;; returned, useful for debugging edge construction.
+    graph
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -262,20 +290,23 @@
 (defn write-graph-to-gdf
   "Extract a graph  collection for the corresponding builder  object and write
   it to file in GDF format."
-  [gcb   ;; A GraphCollectionBuilder object
+  [graph  ;; A StellarGraphBuffer object
    path] ;; Output path
-  (-> gcb
-      .toGraphCollection
+  ;; (throw (new Exception "- Not yet implemented!"))
+  (-> graph
+      .toGraph
+      .toCollection
       .write
       (.gdf path)))
 
 (defn write-graph-to-json
   "Extract a graph  collection for the corresponding builder  object and write
   it to file in JSON (EPGM) format."
-  [gcb   ;; A GraphCollectionBuilder object
-   path] ;; Output path
-  (-> gcb
-      .toGraphCollection
+  [graph  ;; A StellarGraphBuffer object
+   path]  ;; Output path
+  (-> graph
+      .toGraph
+      .toCollection
       .write
       (.json path)))
 
@@ -293,12 +324,53 @@
         glabel (nth args 2)
         scm (load-schema scm-file)
         dat (load-csv dat-file)
-        graph (populate-graph-collection-builder
+        graph (populate-graph
                (create-node-maps scm dat)
                (create-link-maps scm dat)
                glabel)]
     (write-graph-to-gdf graph (str "/tmp/" glabel ".gdf"))
     (write-graph-to-json graph (str "/tmp/" glabel ".json"))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Scratch
+
+(comment
+
+  (def scm-file (io/resource "examples/imdb/imdb_schema.json"))
+  (def dat-file (io/resource "examples/imdb/imdb_small.csv"))
+  (def scm (load-schema scm-file))
+  (def dat (load-csv dat-file))
+  scm
+  dat
+
+  (def nodes (create-node-maps scm dat))
+  (def links (create-link-maps scm dat))
+
+  ;; (filter
+  ;;  (fn [x] (and
+  ;;           (= (:status x) nil)
+  ;;           ;; (= (:label x) "actedin"))
+  ;;    ))
+  ;;  (populate-graph nodes links "testg"))
+
+  (def graph (populate-graph nodes links "testg"))
+
+  ;; graph.toGraph().toCollection().write().json("out.epgm");
+  (-> graph
+      .toGraph
+      .toCollection
+      .write
+      (.json "/tmp/testg.epgm"))
+
+  (-> graph
+      .toGraph
+      .toCollection
+      .write
+      (.gdf "/tmp/testg.gdf"))
+  
+  
+  ) ;; End comment
 
 
 
