@@ -20,11 +20,13 @@
                  ;; Kafka streams support.
                  [org.apache.kafka/kafka_2.11 "0.11.0.0"]
                  [org.apache.kafka/kafka-clients "0.11.0.0"]
-                 ;; TESTING REST
+                 ;; REST
                  [compojure "1.6.0"]
                  [ring/ring-defaults "0.3.1"]
                  [ring/ring-json "0.4.0"]
-                 [ring/ring-jetty-adapter "1.6.2"]]
+                 [ring/ring-jetty-adapter "1.6.2"]
+                 ;; Compojure routes with swagger docs.
+                 [metosin/compojure-api "2.0.0-alpha17"]]
   
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]

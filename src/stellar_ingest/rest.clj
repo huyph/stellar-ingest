@@ -19,10 +19,13 @@
 (ns stellar-ingest.rest
   ;; TODO: check if any is unnecessary.
   (:require [clojure.tools.logging :as log]
-            [compojure.core :as cmpj :refer [GET POST]]
+            ;; Replace compojure.core adding swagger docs.
+            [compojure.api.sweet :as cmpj :refer [GET POST]]
             [compojure.route :as route]
             [compojure.handler :as handle]
             [ring.util.response :refer [response status]]
+            ;; Some response sugar.
+            [ring.util.http-response :as resp]
             [ring.middleware.json :as jsonmw]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.keyword-params :as parsmw]
@@ -31,16 +34,14 @@
             [cats.core :as cats]
             [cats.monad.either :as either]
             ;; Cheshire JSON library
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            ;; Define schemas for swagger documentation.
+            [schema.core :as s]
+            )
   (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-
-(defn bad-request
-  ""
-  [body]
-  (status (response body) 400))
 
 (defn do-sample-csv-file
   ""
@@ -53,7 +54,7 @@
       (response {:headers (into [] (deref header))
                  :rows (into [] (deref sample))})
       ;; Sampling encountered an error.
-      (bad-request (str (deref error))))))
+      (resp/bad-request (str (deref error))))))
 
 (defn do-sample-csv-file-parms
   ""
@@ -77,23 +78,110 @@
   (response (str req)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; REST routes
+;; General REST API description text.
 
-(cmpj/defroutes rest-routes
-  (GET "/" [] "Stellar Ingest v.0.0.2-SNAPSHOT")
-  (GET "/do-show" {parms :params} (do-show parms))
-  (cmpj/context "/sampler" []
-                (cmpj/defroutes sampler-routes
-                  ;; Original do-sample route using post and json for request.
-                  ;; (POST "/do-sample" {body :body} (do-sample-csv-file body))
-                  ;; New do-sample using get and query parameters.
-                  (GET "/do-sample" {parms :params} (do-sample-csv-file-parms parms))
-                  )) ;; End sampler-routes
-  (route/not-found "Not Found"))
+(def ^{:private true} description
+"
+This is the  data ingestion module of the Investigative  Analytics project.
+Its current version is **0.0.2-SNAPSHOT**.
+
+If you see this  page the _Ingestor_ is up and running and  you can access its
+REST API.
+
+In the current API version only CSV file sampling facilities are available, under
+the `/sampler/` address.
+
+For a complete description of the _Ingestor_ and its usage please refer to the
+[README file](https://github.com/data61/stellar-ingest/blob/master/README.md)
+included with its [source code](https://github.com/data61/stellar-ingest).
+")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; REST API routes
+
+(def rest-routes
+  (cmpj/api
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; General API documentation.
+   {:swagger
+    {:ui "/"
+     :spec "/swagger.json"
+     :data{:basePath "/"
+           :info {;; Title of documentation page.
+                  :title "Stellar Ingest"
+                  ;; Version reported in page footer.
+                  :version "0.0.2-SNAPSHOT"
+                  ;; Summary unused/ignored in general API description.
+                  ;; :summary "Just a global summary."
+                  ;; General markdown-based API description.
+                  :description description
+                  :contact {:name "CSIRO Data61 - Investigative Analytics project"}
+                            ;; :email "foo@example.com"
+                            ;; :url "https://www.data61.csiro.au/"}
+                  :license {:name "Apache License, Version 2.0"
+                            :url "http://www.apache.org/licenses/LICENSE-2.0"
+                            }}}}}
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; Service test - Return the application banner.
+   (cmpj/context "/util" []
+     :tags ["Utility functions"]
+
+     (GET "/" []
+       :query-params []
+       :return String
+       :summary "Return the application banner."
+       :description "Return  a simple string containing  the application banner,
+                   in the form `Stellar Ingest v.X.Y.Z[-SNAPSHOT]`"
+       "Stellar Ingest v.0.0.2-SNAPSHOT")
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     ;; Debugging - Echo quesry parameters.
+     (GET "/do-show" {parms :params}
+       :query-params [x :- String,
+                      y :- String,
+                      {z :- String ""}]
+       :summary "Echo the query parameter map."
+       :description  (str
+                      "Called with  any number  of parameters,  echoes the  query"
+                      "parameters map in the response."
+                      "\n\n"
+                      "**Note:** x, y  and z are just  example parameters that
+                      were chosen  for this  documentation page.   When called
+                      from  an external  client  (e.g. `curl`)  any number  of
+                      query parameters, with any names, can be used.")
+       (do-show parms))
+     ) ;; End util routes
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; Sampler API interface.
+   (cmpj/context "/sampler" []
+     :tags ["Sampler functions"]
+     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     ;; Original do-sample route using post and json for request.
+     ;; (POST "/do-sample" {body :body} (do-sample-csv-file body))
+     ;;
+     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     ;; New do-sample using get and query parameters.
+     (GET "/do-sample" {parms :params}
+       ;; TODO: why do I get error with samples as Integer???
+       ;; :query-params [file :- String, samples :- Integer]
+       ;; E.g.: /home/amm00b/WORK/Dev/Stellar/stellar-ingest-pub/resources/test.csv
+       :query-params [file :- String,
+                      samples :- String]
+       ;; :return String
+       ;; Summary is just a few  words (preformatted, right-justified, on path
+       ;; collapsable   title  bar.)    Description  adds   a  long   markdown
+       ;; section "Implementation notes", after title and before responses.
+       :summary "Return a CSV file sample."
+       :description "Given  the path  to a  CSV file and  a number  of samples
+                     return that number of samples from the file."
+       (do-sample-csv-file-parms parms))
+     ) ;; End sampler routes
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; Default: route not found!
+   (route/not-found "Not Found")))
 
 ;; Test POST routes like so:
 ;; curl -v -H "Content-Type: application/json" -d '{"file":"/some/file.csv","samples":"5"}' http://localhost:3000/sampler/do-sample; echo; echo
-
+;;
 ;; Example routes from old project:
 ;; (context "/documents" [] (defroutes documents-routes
 ;;                            (GET  "/" [] (get-all-documents))
@@ -104,28 +192,19 @@
 ;;                                                   (PUT    "/" {body :body} (update-document id body))
 ;;                                                   (DELETE "/" [] (delete-document id))))))
 
+;; {:status 200
+;;  ;; The MIME media type for  JSON text is application/json. The default
+;;  ;; encoding is UTF-8. (Source: RFC 4627).
+;;  :headers {"Content-Type" "application/json"}
+;;  :body (into [] (deref sample))}
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; REST interface, i.e.  the ring composite middleware that  gets launched and
-;; handles requests.
+;; REST interface.
 
-;; (def rest-if
-;;   (-> (handle/api rest-routes)
-;;       (jsonmw/wrap-json-body)
-;;       (jsonmw/wrap-json-response)))
-
-
-      ;; {:status 200
-      ;;  ;; The MIME media type for  JSON text is application/json. The default
-      ;;  ;; encoding is UTF-8. (Source: RFC 4627).
-      ;;  :headers {"Content-Type" "application/json"}
-      ;;  :body (into [] (deref sample))}
-
-;; #object[org.eclipse.jetty.server.HttpInputOverHTTP 0x35f16daf HttpInputOverHTTP@35f16daf]
 (def rest-if
-  (as-> (handle/api rest-routes) h
-      ;; (jsonmw/wrap-json-body h {:keywords? true})
-      (parsmw/wrap-keyword-params h)
-      (jsonmw/wrap-json-response h)))
+  (-> rest-routes
+      parsmw/wrap-keyword-params
+      jsonmw/wrap-json-response))
 
 ;; Utility functions to start/stop server.
 ;; Alternatively use: "lein ring server"
