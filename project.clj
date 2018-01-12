@@ -42,7 +42,13 @@
 
   :main stellar-ingest.app
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  ;; On Mac OSX the explicit list seems to be necessary. Is it about build order?
+  ;; Without it, compilation of rest complains about missing classNotFound core.
+  ;; :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot [stellar-ingest.core
+                             stellar-ingest.rest
+                             stellar-ingest.app]}})
+
 
 ;; Consider adding these for testing (check versions):
 ;;   :profiles
