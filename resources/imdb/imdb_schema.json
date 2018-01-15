@@ -1,0 +1,251 @@
+{
+    "graphSchema": {
+        "classLinks": [
+            {
+                "name": "actedin",
+                "source": "Person",
+                "target": "Film"
+            },
+            {
+                "name": "workedin",
+                "source": "Person",
+                "target": "Film"
+            },
+            {
+                "name": "produced",
+                "source": "Company",
+                "target": "Film"
+            }
+        ],
+        "classes": [
+            {
+                "name": "Film",
+                "props": {
+                    "classification": "string",
+                    "isforeign": "boolean",
+                    "title": "string",
+                    "year": "string"
+                }
+            },
+            {
+                "name": "Person",
+                "props": {
+                    "name": "string"
+                }
+            },
+            {
+                "name": "Company",
+                "props": {
+                    "name": "string"
+                }
+            }
+        ]
+    },
+    "mapping": {
+        "links": [
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "corporation",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "produced",
+                    "source": "Company"
+                }
+            },
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "cast1",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "actedin",
+                    "source": "Person"
+                }
+            },
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "cast2",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "actedin",
+                    "source": "Person"
+                }
+            },
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "cast3",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "actedin",
+                    "source": "Person"
+                }
+            },
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "crew1",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "workedin",
+                    "source": "Person"
+                }
+            },
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "crew2",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "workedin",
+                    "source": "Person"
+                }
+            },
+            {
+                "@dest": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@src": {
+                    "column": "crew3",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": {
+                    "name": "workedin",
+                    "source": "Person"
+                }
+            }
+        ],
+        "nodes": [
+            {
+                "@id": {
+                    "column": "id",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Film",
+                "classification": {
+                    "column": "genre",
+                    "source": "imdb_small_2.csv"
+                },
+                "isforeign": {
+                    "column": "foreign",
+                    "source": "imdb_small_2.csv"
+                },
+                "title": {
+                    "column": "filmtitle",
+                    "source": "imdb_small_2.csv"
+                },
+                "year": {
+                    "column": "year",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "corporation",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Company",
+                "name": {
+                    "column": "corporation",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "cast1",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Person",
+                "name": {
+                    "column": "cast1",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "cast2",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Person",
+                "name": {
+                    "column": "cast2",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "cast3",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Person",
+                "name": {
+                    "column": "cast3",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "crew1",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Person",
+                "name": {
+                    "column": "crew1",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "crew2",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Person",
+                "name": {
+                    "column": "crew2",
+                    "source": "imdb_small_2.csv"
+                }
+            },
+            {
+                "@id": {
+                    "column": "crew3",
+                    "source": "imdb_small_2.csv"
+                },
+                "@type": "Person",
+                "name": {
+                    "column": "crew3",
+                    "source": "imdb_small_2.csv"
+                }
+            }
+        ]
+    },
+    "sources": [
+        "imdb_small_2.csv"
+    ]
+}
