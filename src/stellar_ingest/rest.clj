@@ -18,7 +18,9 @@
 
 (ns stellar-ingest.rest
   ;; TODO: check if any is unnecessary.
-  (:require [clojure.tools.logging :as log]
+  (:require [stellar-ingest.core :as core]
+            ;; Logging
+            [clojure.tools.logging :as log]
             ;; Replace compojure.core adding swagger docs.
             [compojure.api.sweet :as cmpj :refer [GET POST]]
             [compojure.route :as route]
@@ -225,6 +227,24 @@ included with its [source code](https://github.com/data61/stellar-ingest).
 ;; above command is issued in.
 
 (defn -main [& args]
-  ;; Missing control on command line parms validity.
-  (let [port (if (nil? args) 3000 (first args))]
-    (jetty/run-jetty #'rest-if {:port port :join? false})))
+  (let [def-port 3000
+        ;; Get port from command line or use default (3000).
+        ;; TODO: catching in let-binding is not so great (e.g. for 'finally').
+        ;; Consider using try-let library or refactor the code.
+        port (if (nil? args)
+               def-port
+               (try (Integer/parseInt (first args))
+                    (catch java.lang.NumberFormatException e
+                      (println (str "Invalid port: " (first args)
+                                    ". Using default: " def-port))
+                      def-port)))]
+    (try
+      (jetty/run-jetty #'rest-if {:port port :join? false})
+      (catch java.net.BindException e
+        (println (str "Network error: " e ".")))
+      (catch java.lang.Exception e
+        (println (str "Unexpected error: " e "."))))))
+
+
+
+
