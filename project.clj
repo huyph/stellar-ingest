@@ -28,7 +28,9 @@
                  ;; Compojure routes with swagger docs.
                  [metosin/compojure-api "2.0.0-alpha17"]
                  ;; New utils: local memory backend.
-                 [sh.serene/stellar-utils "0.2.0-SNAPSHOT"]]
+                 [sh.serene/stellar-utils "0.2.0-SNAPSHOT"]
+                 ;; Get version string from lein project.
+                 [trptcolin/versioneer "0.2.0"]]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
             ;; Deploy to/retrieve from private artifact repository on S3.

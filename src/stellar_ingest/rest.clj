@@ -19,6 +19,7 @@
 (ns stellar-ingest.rest
   ;; TODO: check if any is unnecessary.
   (:require [stellar-ingest.core :as core]
+            [stellar-ingest.utils :as utils]
             ;; Logging
             [clojure.tools.logging :as log]
             ;; Replace compojure.core adding swagger docs.
@@ -38,8 +39,7 @@
             ;; Cheshire JSON library
             [cheshire.core :as json]
             ;; Define schemas for swagger documentation.
-            [schema.core :as s]
-            )
+            [schema.core :as s])
   (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -110,9 +110,9 @@ included with its [source code](https://github.com/data61/stellar-ingest).
      :spec "/swagger.json"
      :data{:basePath "/"
            :info {;; Title of documentation page.
-                  :title "Stellar Ingest"
+                  :title (utils/get-application-name)
                   ;; Version reported in page footer.
-                  :version "0.0.2-SNAPSHOT"
+                  :version (utils/get-application-version)
                   ;; Summary unused/ignored in general API description.
                   ;; :summary "Just a global summary."
                   ;; General markdown-based API description.
@@ -134,7 +134,7 @@ included with its [source code](https://github.com/data61/stellar-ingest).
        :summary "Return the application banner."
        :description "Return  a simple string containing  the application banner,
                    in the form `Stellar Ingest v.X.Y.Z[-SNAPSHOT]`"
-       "Stellar Ingest v.0.0.2-SNAPSHOT")
+       (utils/get-application-banner))
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      ;; Debugging - Echo quesry parameters.
      (GET "/do-show" {parms :params}
@@ -244,7 +244,3 @@ included with its [source code](https://github.com/data61/stellar-ingest).
         (println (str "Network error: " e ".")))
       (catch java.lang.Exception e
         (println (str "Unexpected error: " e "."))))))
-
-
-
-
