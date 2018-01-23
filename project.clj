@@ -1,4 +1,4 @@
-(defproject sh.serene/stellar-ingest "0.0.2-SNAPSHOT"
+(defproject au.csiro.data61.stellar/stellar-ingest "0.0.2-SNAPSHOT"
     
   :description "Stellar data ingestion module."
   :url "http://serene.sh/"
