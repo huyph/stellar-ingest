@@ -71,7 +71,13 @@ resources/examples/imdb/imdb_small_2.csv \
 imdb
 ```
 
+## Documentation
 
+Further documentation  is provided  in the [doc  directory](./doc/index.md) of
+this repository.
+
+An   (incomplete)   list  of   upcoming   features   is  maintained   in   the
+[TODO.md](TODO.md) file.
 
 
 
