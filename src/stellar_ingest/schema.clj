@@ -19,6 +19,7 @@
 (ns stellar-ingest.schema
   ;; TODO: check if any is unnecessary.
   (:require [stellar-ingest.core :as core]
+            [stellar-ingest.utils :as utils]
             ;; Logging
             [clojure.tools.logging :as log]
             ;; I/O.
@@ -36,35 +37,6 @@
    (sh.serene.stellarutils.graph.api StellarBackEndFactory StellarGraph StellarGraphBuffer)
    (sh.serene.stellarutils.graph.impl.local LocalBackEndFactory))
   (:gen-class))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Temporary  file utilities  - Must  be replaced  with portable  versions and
-;; moved to another namespace.
-
-;; TODO: import portable FS library and change these functions.
-
-(defn file-to-string [f]
-  (cond
-    (instance? java.io.File f) (.getPath f)
-    (instance? java.net.URL f) (.getPath f)
-    (instance? java.lang.String f) f
-    :else nil))
-
-(defn path-basename [f]
-  (let [f (file-to-string f)
-        v (clojure.string/split f #"/")
-        n (count v)]
-    (if (= n 1)
-      ""
-      (if (and (= n 2) (= (first v) ""))
-        "/"
-        (str (clojure.string/join "/" (subvec v 0 (- n 1))) "/")))))
-
-(defn path-filename [f]
-  (last (clojure.string/split (file-to-string f) #"/")))
-
-(defn make-path [base file]
-  (str (file-to-string base) (file-to-string file)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -91,8 +63,8 @@
 (defn add-path-to-sources
   [scm-file]
   (let [scm (load-schema scm-file)
-        dir (path-basename scm-file)]
-    (into [] (map (partial make-path dir) (:sources scm)))))
+        dir (utils/path-basename scm-file)]
+    (into [] (map (partial utils/make-path dir) (:sources scm)))))
 
 (defn get-subschema-by-source
   [scm src]
@@ -106,10 +78,10 @@
 
 (defn load-project
   [scm-file]
-  (let [dir (path-basename scm-file)
+  (let [dir (utils/path-basename scm-file)
         scm (load-schema scm-file)]
     (into [] (zipmap 
-              (map (partial make-path dir) (:sources scm))
+              (map (partial utils/make-path dir) (:sources scm))
               (map (partial get-subschema-by-source scm) (:sources scm))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

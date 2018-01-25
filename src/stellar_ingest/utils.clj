@@ -64,3 +64,31 @@
   []
   (str (get-application-name) " v." (get-application-version)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Temporary  file utilities  - Must  be replaced  with portable  versions and
+;; moved to another namespace.
+
+;; TODO: import portable FS library and change these functions.
+
+(defn file-to-string [f]
+  (cond
+    (instance? java.io.File f) (.getPath f)
+    (instance? java.net.URL f) (.getPath f)
+    (instance? java.lang.String f) f
+    :else nil))
+
+(defn path-basename [f]
+  (let [f (file-to-string f)
+        v (clojure.string/split f #"/")
+        n (count v)]
+    (if (= n 1)
+      ""
+      (if (and (= n 2) (= (first v) ""))
+        "/"
+        (str (clojure.string/join "/" (subvec v 0 (- n 1))) "/")))))
+
+(defn path-filename [f]
+  (last (clojure.string/split (file-to-string f) #"/")))
+
+(defn make-path [base file]
+  (str (file-to-string base) (file-to-string file)))
