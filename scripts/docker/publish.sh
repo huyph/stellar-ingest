@@ -1,4 +1,7 @@
-docker login etd-docker01.it.csiro.au
+INGEST_VERSION=$(cd ../..; lein pom &> /dev/null && mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
 
-# docker push registry-host:5000/myadmin/rhel-httpd
-docker push etd-docker01.it.csiro.au/stellar/ingest:0.0.2-SNAPSHOT
+docker login
+
+# docker push registry-host:5000/namespace/repository-name
+docker push data61/stellar-ingest:$INGEST_VERSION
+docker push data61/stellar-ingest:latest

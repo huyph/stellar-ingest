@@ -4,7 +4,7 @@ services:
   # The ingestor. Rest API on port 3000.
   ingest:
     #command: bash -c "mkdir -p /tmp/data/user"
-    image: etd-docker01.it.csiro.au/stellar/ingest:0.0.2-SNAPSHOT
+    image: data61/stellar-ingest:latest
     # Example: no env var is currently used by the ingestor
     environment:
       - DEBUG=false

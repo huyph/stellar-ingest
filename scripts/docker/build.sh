@@ -1,4 +1,7 @@
-jarfile="../../target/uberjar/stellar-ingest-0.0.2-SNAPSHOT-standalone.jar"
+INGEST_VERSION=$(cd ../..; lein pom &> /dev/null && mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
+# echo $INGEST_VERSION
+
+jarfile="../../target/uberjar/stellar-ingest-$INGEST_VERSION-standalone.jar"
 example="../../resources/imdb/imdb_small.csv"
 
 echo "Checking for required files:"
@@ -17,12 +20,8 @@ cp $jarfile .
 cp $example .
 
 # TODO: Capture failure and print a message.
-docker build -t stellar/ingest:0.0.2-SNAPSHOT .
-
-# Tag to allow upload to CSIRO registry.
-docker tag stellar/ingest:0.0.2-SNAPSHOT etd-docker01.it.csiro.au/stellar/ingest:0.0.2-SNAPSHOT
-
-# TODO: add tag 'latest' to always pull latest version...
+docker build -t data61/stellar-ingest:$INGEST_VERSION .
+docker build -t data61/stellar-ingest:latest .
 
 # Remove temporary file copies.
 rm $(basename $jarfile)
