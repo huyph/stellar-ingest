@@ -1,22 +1,76 @@
-# Language-specific development tools.
+################################################################################
+# Stellar Ingest CI workflow
+#
+# - All commits, on all branches, get built and unit-tested.
+# - Commits on branch devel (snapshots)  and master (releases), get packaged and
+#   the binary artifacts (jars) published in the maven repository.
+# - Commits from  master get  published only  if the version  string is  a valid
+#   non-snapshot     and    they     have    an     annotated    version     tag
+#   (stellar-ingest-VERSION), otherwise the step fails.
+# - Commits  from devel  get published  only if  the version  string is  a valid
+#   snapshot, otherwise  the step fails.  If  they have any tag  that suggests a
+#   release version, the process fails as well.
+# - Branches named 'develmoch/*'  and 'mastermoch/*' are treated  like devel and
+#   master  respectively and  should  be  used exclusively  to  test/fix the  CI
+#   workflow.
+################################################################################
+
+# Language settings ############################################################
+
 language: clojure
 jdk: oraclejdk8
 
-# Environment variables (e.g. encrypted credentials).
+# Environment ##################################################################
+
 env:
   global:
-  - secure: Zv8mNYuHTlR/y0yP5gJkgHHPX0ZZEt0IWDH2VR+mlpkcDi8qDBQ07c4ywRUUvjSgtyWJVtoXs5K9/g6dkV4T0pNJefsm6+DGGmYW41mB9cDyUszu8oX6xcmmZH9lv2x8911o+XVAbX7VhLHVHZztuLWYOkYoP22uOal2id+lSKP4pOWqzlTt8lfwnryLQhAVSRtIz5zbD73zE7qq4ajnnckp9uhAE5sj2xMomTSS1nfHMx8ygSlBi8YIFN6eYlY1m5Yk53NZAGObgLYhOolESVe4IUg6wy/jaXhMOtm6zaAdQtKB3jY2czxpfZF63cazRf9U1ieVWx6ss1HxvtNMSyR5oAynLsNUlJeJFdTcNyFl4q3QPDt4/SqLLrU2iM24jsw7xHPt0LDfuvN9eI+gVFjskGD6PWtw+raaZ1ZqbeXTpEnRYfTs6gYeXAnNe+jofRI3cfpGNAHOCeMWVcTuVhT6XjzVv0CsHPsaEcmwLvl/fRH16b38+OsJBVzw4grw8FasrIsZVAoQbW9067aR4Hpf1byd1jCEPA4xAsPCa4vvhQusTX6fT5zoP4FuYae+P8hL15h3P0GsOSVw1wezHjVxPSdtVARkjqg1CkFLWOtoyZj7aOzzGGvvIU/Yxy/Tcvf7veMkUPDhItn2FOqHDiruJk1rsWTA72G/PtVBysM=
-  - secure: jBly9iDZT9dCE43QDWsAk0FCMpdW89gpr2AhZlXDBUSbddM+t6qXUUtnpnrq4V7BjqmymqM8Z8+VdSBdv1i11DpjQCqC2BO5KZncTMPehzF+qbt1nr9IZXu/sMt/pgvOcr2Ie1mLF//KwnkrlxOUyUxEjuO6OVdO47qWsKawU7bci649KBGTDoCqflZ0EE7ZLQuDDZ9rlZ/+hLvqFQLxyEajW0ZJxK0hIaxU+IoQdT8y5e08ru1ULCGqQR1JAQsxovJVtJ8SLttIt6A1OFNn/EUTM8nvizyVgt+chp992sX4eRrlUatHamrUIbPGsTs2m8+FHda2agQz5YJ1wLyY+m3QaJGO4pIP1LqDBVb1M7vCTz/Lr24OV/3x75tys6frWQD4ez77aX+YeBbplrO8+biLv8/V9u2UU1X8fxgjCXVylBnkwco/ZgMDL4NLUUDGYpt6qZly98dSO8Q7Mu90mptUxKZRL0XBX1taAk3rAr8wjuHlLGvzpXE5w8fadVbENxhLW4Gq4OxrVmdb8uME25FQR1VPVFHcksmoWcayy8bQF/AbqTh5j9at8fpBcGBZ51cBzX7luijGJi7gc2h0yiR9FSQeCW17gPuueV7bHMWKsA/Ahye68qVFGpQh3nJya0tThknpb4KFaJVF6dLHHZObcDUKb/lIYSZOToY3nMQ=
+    - INGEST_VERSION: $(lein pom &> /dev/null && 
+                        mvn -q -Dexec.executable="echo" 
+                               -Dexec.args='${project.version}' 
+                               --non-recursive exec:exec)
+    - INGEST_TAG: $(git describe --tags)
 
-# Pipeline stages.
+# Pipeline stages ##############################################################
+
 jobs:
-  include:
-  - stage: test
-    if: branch IN (master, devel) OR branch =~ ^version-
-    script: lein test
-  - stage: publish
-    if: branch IN (master, devel) OR branch =~ ^version-
-    script:
-    - lein deploy
-    - lein deploy-uberjar
 
+  include:
+  # Unit-testing is always performed.
+  - stage: test
+    script: lein test
+    
+  # Publish development artifacts (snapshots) from branch devel
+  - stage: publish
+    if: branch = devel OR branch =~ ^develmock/
+    script:
+    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]] && [[ ! $INGEST_TAG =~ ^stellar-ingest-[0-9]+\.[0-9]+\.[0-9]$ ]] ; then
+        echo "Publishing development version $INGEST_VERSION";
+        lein deploy;
+        lein deploy-uberjar;
+      else
+        echo "CONFLICT publishing development version $INGEST_VERSION - tag $INGEST_TAG";
+        exit 1;
+      fi
+      
+  # Publish stable artifacts (releases) from branch master
+  - stage: release
+    if: branch = master OR branch =~ ^mastermock/
+    script:
+    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ ! $INGEST_TAG = "stellar-ingest-$INGEST_VERSION" ]] ; then
+        echo "Releasing version $INGEST_VERSION";        
+        lein deploy;
+        lein deploy-uberjar;
+      else
+        echo "CONFLICT releasing version $INGEST_VERSION - tag $INGEST_TAG";
+        exit 1;
+      fi
+
+# Notifications ################################################################
+
+notifications:
+  slack:
+    secure: uxsRUD3eQqpNZHlYOCjyvSlyAW3g050WtpMiG3ZZps5FL116k3j/ApZQ95GHRqpT4ASUXGgDG7WZvHIdjX7OMrKnI/9cQxi5nD/J9nJbJHdDEBf9QxaxV8+8Oq0nQT2xdyQpvzy5dTDUIElP6G4LH/iiDCK7eJieJIR15zwavW84BHV9Z/kXmv8/wNW4MaTh9OGVgCjw4SK/I3VordP7n/1I6PAC8Ilm1QewuGhOWoeb9hdsRg3wRRndd13OI+a902TlrYxCcei951Ew0KXi+w5oM/VhLA1PgEw+BSd5wzNhCKqgNai1RFX8oFfwbYky1rrzF1Y8L6gxpVa2fWbJEASDwtRYAHtrRp7fw83POVOWwV5SDXQNp7xdNFwh1VRI1Cd5eXLysIbxKTGL9fMr+TK5CqYAd/lQEb6uzQssDStX3JR7is35Jims3Jnz2dlBoHE1SCKWpdjHpVTENLPSXnGLtRlSp1SVTtJTPZg4FqXIhr5W3kg7n/ZKP3v5bTwE6fnht17JMFrmKawX9P2HI3GjQLITw/gPhefrjoaRYFbNsdOV5UtC3z/LYjaHGnWXsfwaJdBx79HRrnAS4ykBX/+OHBS8OnIjeghBVtJIwN33gX/PF9ZsX+5kyib0YC8R+oHLIv/nSvL2PLYcXf6AFnCc56hD8YjZftr3FoKFXTQ=
+    # on_success: change
+    on_success: always
+    on_failure: always
+ 
