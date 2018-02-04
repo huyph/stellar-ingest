@@ -23,7 +23,9 @@
                  ;; REST
                  [compojure "1.6.0"]
                  [ring/ring-defaults "0.3.1"]
-                 [ring/ring-json "0.4.0" :exclusions [com.fasterxml.jackson.core/jackson-core]]
+                 [ring/ring-json "0.4.0"
+                  ;; Exclusion solves version conflict with Stellar-Utils.
+                  :exclusions [com.fasterxml.jackson.core/jackson-core]]
                  [ring/ring-jetty-adapter "1.6.2"]
                  ;; Compojure routes with swagger docs.
                  [metosin/compojure-api "2.0.0-alpha17"]
@@ -33,27 +35,26 @@
                  [trptcolin/versioneer "0.2.0"]]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
+            ;; Print version taken from project.clj
+            [lein-project-version "0.1.0"]
             ;; Deploy to/retrieve from private artifact repository on S3.
-            [s3-wagon-private "1.3.0"]
+            [lein-maven-s3-wagon "0.2.5"]
             ;; Deploy uberjar to S3 repository.
-            [org.ammazza/lein-deploy-uberjar "2.1.0"]]
+            [org.ammazza/lein-deploy-uberjar "2.1.1-SNAPSHOT"]]
   
-  :repositories [["snapshots" {:url "s3p://serene-maven-repository/snapshots" :no-auth true :sign-releases false}]
-                 ["releases" {:url "s3p://serene-maven-repository/releases" :no-auth true :snapshots false :sign-releases false}]]
+  :repositories [["snapshots" {:url "s3://serene-maven-repository/snapshots"
+                               :no-auth true :sign-releases false}]
+                 ["releases" {:url "s3://serene-maven-repository/releases"
+                              :no-auth true :snapshots false :sign-releases false}]]
   
   :ring {:handler stellar-ingest.rest/rest-if}
 
   :main stellar-ingest.app
   :target-path "target/%s"
-  ;; On Mac OSX the explicit list seems to be necessary. Is it about build order?
-  ;; Without it, compilation of rest complains about missing classNotFound core.
+  ;; Mac OSX seems to require explicit class list. Investigate.
   :profiles {:uberjar {:aot :all}})
-  ;; :profiles {:uberjar {:aot [stellar-ingest.core
-  ;;                            stellar-ingest.rest
-  ;;                            stellar-ingest.app]}})
 
-
-;; Consider adding these for testing (check versions):
+;; Consider adding these in a testing profile (check versions):
 ;;   :profiles
 ;;   {:dev {:dependencies [[javax.servlet/servlet-api "2.5"]
 ;;                         [ring/ring-mock "0.3.0"]]}})

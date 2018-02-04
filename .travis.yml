@@ -13,22 +13,20 @@
 # - Branches named 'develmoch/*'  and 'mastermoch/*' are treated  like devel and
 #   master  respectively and  should  be  used exclusively  to  test/fix the  CI
 #   workflow.
+#
 ################################################################################
 
-# Language settings ############################################################
+# Language settings ###########################################################
 
 language: clojure
 jdk: oraclejdk8
 
-# Environment ##################################################################
+# Environment #################################################################
 
 env:
   global:
-    - INGEST_VERSION: $(lein pom &> /dev/null && 
-                        mvn -q -Dexec.executable="echo" 
-                               -Dexec.args='${project.version}' 
-                               --non-recursive exec:exec)
-    - INGEST_TAG: $(git describe --tags)
+    - INGEST_VERSION: $(lein project-version 2> /dev/null)
+    - INGEST_TAG: $(git describe --tags 2> /dev/null)
 
 # Pipeline stages ##############################################################
 
@@ -41,14 +39,16 @@ jobs:
     
   # Publish development artifacts (snapshots) from branch devel
   - stage: publish
-    if: branch = devel OR branch =~ ^develmock/
+    if: branch = devel OR branch =~ ^develmock/ OR branch=envvar
     script:
-    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]] && [[ ! $INGEST_TAG =~ ^stellar-ingest-[0-9]+\.[0-9]+\.[0-9]$ ]] ; then
+    - echo "Attempting to publish development version [$INGEST_VERSION] - tag [$INGEST_TAG]";
+    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]] &&
+         [[ ! $INGEST_TAG =~ ^stellar-ingest-[0-9]+\.[0-9]+\.[0-9]$ ]] ; then
         echo "Publishing development version $INGEST_VERSION";
         lein deploy;
         lein deploy-uberjar;
       else
-        echo "CONFLICT publishing development version $INGEST_VERSION - tag $INGEST_TAG";
+        echo "CONFLICT publishing development version [$INGEST_VERSION] - tag [$INGEST_TAG]";
         exit 1;
       fi
       
@@ -56,21 +56,20 @@ jobs:
   - stage: release
     if: branch = master OR branch =~ ^mastermock/
     script:
-    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ ! $INGEST_TAG = "stellar-ingest-$INGEST_VERSION" ]] ; then
-        echo "Releasing version $INGEST_VERSION";        
+    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+         [[ ! $INGEST_TAG = "stellar-ingest-$INGEST_VERSION" ]] ; then
+        echo "Releasing version [$INGEST_VERSION]";        
         lein deploy;
         lein deploy-uberjar;
       else
-        echo "CONFLICT releasing version $INGEST_VERSION - tag $INGEST_TAG";
+        echo "CONFLICT releasing version [$INGEST_VERSION] - tag [$INGEST_TAG]";
         exit 1;
       fi
 
-# Notifications ################################################################
+# # Notifications ################################################################
 
 notifications:
   slack:
-    secure: uxsRUD3eQqpNZHlYOCjyvSlyAW3g050WtpMiG3ZZps5FL116k3j/ApZQ95GHRqpT4ASUXGgDG7WZvHIdjX7OMrKnI/9cQxi5nD/J9nJbJHdDEBf9QxaxV8+8Oq0nQT2xdyQpvzy5dTDUIElP6G4LH/iiDCK7eJieJIR15zwavW84BHV9Z/kXmv8/wNW4MaTh9OGVgCjw4SK/I3VordP7n/1I6PAC8Ilm1QewuGhOWoeb9hdsRg3wRRndd13OI+a902TlrYxCcei951Ew0KXi+w5oM/VhLA1PgEw+BSd5wzNhCKqgNai1RFX8oFfwbYky1rrzF1Y8L6gxpVa2fWbJEASDwtRYAHtrRp7fw83POVOWwV5SDXQNp7xdNFwh1VRI1Cd5eXLysIbxKTGL9fMr+TK5CqYAd/lQEb6uzQssDStX3JR7is35Jims3Jnz2dlBoHE1SCKWpdjHpVTENLPSXnGLtRlSp1SVTtJTPZg4FqXIhr5W3kg7n/ZKP3v5bTwE6fnht17JMFrmKawX9P2HI3GjQLITw/gPhefrjoaRYFbNsdOV5UtC3z/LYjaHGnWXsfwaJdBx79HRrnAS4ykBX/+OHBS8OnIjeghBVtJIwN33gX/PF9ZsX+5kyib0YC8R+oHLIv/nSvL2PLYcXf6AFnCc56hD8YjZftr3FoKFXTQ=
-    # on_success: change
-    on_success: always
+    secure: Y87bsz8T29L2SRL4Sh5e6JPPLd2AsSx42Cyo6GodSU7Yu+gduHKx+/iLzxr/N2sqTliuMMRDLpHP/4NuhMVhxyjC+Fld0aFVUwJdKnB+K+8Id8LdZqh0SznKYozbESDh+GMKwzHEGS2PSVqvlcFziuYmjAoXtufZS/k5xXuju4E3Ge3lgZqynOZ88UPVIPkAFaEBKrMG8izrzF8R6plrceH5DrQW3uF/JQURpQF0DdDAQzZuSbBgCRVyzP7vc7RkDiXJ3YbCcNQJs5WlUHdh1euKaK8eqwlqzJrlZV/qINR277GjUKV8tJO/iGW3AahS4M4NkWMdXyPPEpP1XzSmc1tIio8jp6syD/mLuucMu0F+QeR/SlvksxKqaUFZtlQBs94uFOx40Ew+fFbSmCm6UNeMpcwHtPR2t9SOSuh7fXN50X+5+fSXdrfe8Q5BgACDhl5C4li56zejLqN9//81LFnHFrDbGjaYZNAxrxj7shV2lTJiTuNbgK+WwfiZGz3copnDEAY0zPDP9aeK1Z4I5/74XzMVfIk76609MKboWO/e075mbKI0Gw7qv3gL9disokShOksUMCMEBLZMmpase7+7xSnj0jEHkjNhirMQ7UfsEGjE00qJlRye8srkmHSbphd7b5GogQz9EclOVtqn87KZagM9p1w/pQ9l2s+Cz8E=
+    on_success: change
     on_failure: always
- 
