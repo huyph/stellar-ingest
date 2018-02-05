@@ -39,7 +39,7 @@ jobs:
     
   # Publish development artifacts (snapshots) from branch devel
   - stage: publish
-    if: branch = devel OR branch =~ ^develmock/ OR branch=envvar
+    if: branch = devel OR branch =~ ^develmock/
     script:
     - echo "Attempting to publish development version [$INGEST_VERSION] - tag [$INGEST_TAG]";
     - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]] &&
