@@ -44,7 +44,9 @@
             ;; Deploy uberjar to S3 repository.
             [org.ammazza/lein-deploy-uberjar "2.1.1-SNAPSHOT"]
             ;; Collect test results for coveralls.
-            [lein-cloverage "1.0.10"]]
+            [lein-cloverage "1.0.10"]
+            ;; Generate program API documentation.
+            [lein-codox "0.10.3"]]
   
   :repositories [["snapshots" {:url "s3://serene-maven-repository/snapshots"
                                :no-auth true :sign-releases false}]
