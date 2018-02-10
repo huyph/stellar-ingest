@@ -2,10 +2,10 @@
 
 ## Build status
 
-|Branch|Status|
-|:-----|:----:|
-|*master*|[![Build Status](https://travis-ci.org/data61/stellar-ingest.svg?branch=master)](https://travis-ci.org/data61/stellar-ingest)|
-|*devel*|[![Build Status](https://travis-ci.org/data61/stellar-ingest.svg?branch=devel)](https://travis-ci.org/data61/stellar-ingest)|
+|Branch|Build|Coverage|
+|:-----|:----:|:----:|
+|*master*|[![Build Status](https://travis-ci.org/data61/stellar-ingest.svg?branch=master)](https://travis-ci.org/data61/stellar-ingest)|[![Coverage Status](https://coveralls.io/repos/github/data61/stellar-ingest/badge.svg?branch=master)](https://coveralls.io/github/data61/stellar-ingest?branch=master)|
+|*devel*|[![Build Status](https://travis-ci.org/data61/stellar-ingest.svg?branch=devel)](https://travis-ci.org/data61/stellar-ingest)|[![Coverage Status](https://coveralls.io/repos/github/data61/stellar-ingest/badge.svg?branch=devel)](https://coveralls.io/github/data61/stellar-ingest?branch=devel)|
 
 ## License
 

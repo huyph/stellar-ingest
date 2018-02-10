@@ -35,8 +35,10 @@ jobs:
   include:
   # Unit-testing is always performed.
   - stage: test
-    script: lein test
-    
+    script:
+    - lein cloverage --coveralls
+    - curl -F 'json_file=@target/coverage/coveralls.json' "https://coveralls.io/api/v1/jobs"
+
   # Publish development artifacts (snapshots) from branch devel
   - stage: publish
     if: branch = devel OR branch =~ ^develmock/

@@ -42,7 +42,9 @@
             ;; Deploy to/retrieve from private artifact repository on S3.
             [lein-maven-s3-wagon "0.2.5"]
             ;; Deploy uberjar to S3 repository.
-            [org.ammazza/lein-deploy-uberjar "2.1.1-SNAPSHOT"]]
+            [org.ammazza/lein-deploy-uberjar "2.1.1-SNAPSHOT"]
+            ;; Collect test results for coveralls.
+            [lein-cloverage "1.0.10"]]
   
   :repositories [["snapshots" {:url "s3://serene-maven-repository/snapshots"
                                :no-auth true :sign-releases false}]
