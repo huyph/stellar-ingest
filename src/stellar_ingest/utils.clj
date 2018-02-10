@@ -19,7 +19,9 @@
 (ns stellar-ingest.utils
   (:require
    ;; Get version string from lein project.
-   [trptcolin.versioneer.core :as version])
+   [trptcolin.versioneer.core :as version]
+   [me.raynes.fs :as fs])
+  (:import [java.io File])
   (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -70,6 +72,9 @@
 
 ;; TODO: import portable FS library and change these functions.
 
+;; TODO:  Only  basename  and  makepath  used in  public  code,  make-path  uses
+;; file-to-string. Function filename unused. Rethink if they're needed.
+
 (defn file-to-string [f]
   (cond
     (instance? java.io.File f) (.getPath f)
@@ -92,3 +97,56 @@
 
 (defn make-path [base file]
   (str (file-to-string base) (file-to-string file)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; A shorthand  path is a portion  of an path that  can be used to  identify the
+;; path in a  compact way: it is  defined as a trailing portion  of the original
+;; path,  e.g. a  file name  can  be a  shorthand  for the  file absolute  path.
+;; Shorthand are  useful, for instance,  in the schema definition,  to reference
+;; sources in mappings without repeating the full path.
+
+(defn check-path-shorthand
+  "
+  Given two paths,  assess if child can be interpreted  as shorthand for parent,
+  i.e. if  child is a subpath  of parent, terminating  at the same level  (or is
+  simply  equal  to the  parent).  Return  -1 for  no  shorthand,  1 for  strict
+  shorthand (subpath) and 0 if they're equal.
+
+  The two paths must be of type java.io.File or String and contain a valid path.
+  Different types can be safely passed,  as long as they implement conversion to
+  String, but behaviour is undefined.
+
+  The  paths are  compared as  they  are, without  normalization (i.e.   special
+  directory  symbols '.',  '..',  '~',  etc. are  not  resolved). Multiple  path
+  separators in place of one are correctly ignored.
+  "
+  [child parent]
+  (let [;;  Turn the two  paths into vectors  of their components  (as strings).
+        ;; Ingore multiple  consecutive path  separators, e.g.  "///".   Get the
+        ;; length of the resulting vectors.
+        c (into [] (filter #(not= "" %) (fs/split child)))
+        p (into [] (filter #(not= "" %) (fs/split parent)))
+        lc (count c)
+        lp (count p)]
+    ;; If the child is longer or if  trailing section of parent differs, it's no
+    ;; shorthand (-1).
+    (if (or (> lc lp) (not= c (subvec p (- lp lc))))
+      -1
+      ;; If the  child is shorter and  equals a trailing portion  of the parent,
+      ;; then it's  a strict shorthand (1).  Otherwise child and parent  are the
+      ;; same path (0).
+      (if (and (< lc lp) (= c (subvec p (- lp lc))))
+        1
+        0))))
+
+(defn resolve-path-shorthand
+  "
+  Given a  shorthand path and a  collection of candidate parent  paths, return a
+  collection of  matching parents, i.e.  parents  for which check-path-shorthand
+  return equality or strict shorthand.
+
+  See check-path-shorthand for valid input types and limitations on them.
+  "
+  [child parents]
+  ;; Take parents that are equal to child or for which child is a shorthand.
+  (filter #(>= (check-path-shorthand child %) 0) parents))
