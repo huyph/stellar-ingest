@@ -43,6 +43,17 @@
 
 (deftest test-check-path-shorthand
   (testing "Function check-path-shorthand."
+    ;; Some  degree of  safety against  meaningless input  parms: nil  and empty
+    ;; string values are accepted and reported as 'no shorthand'.
+    (is (= -1
+         (check-path-shorthand "" "/foo/bar/baz/dir/file.ext")))
+    (is (= -1
+         (check-path-shorthand "file.ext" "")))
+    (is (= -1
+         (check-path-shorthand nil "/foo/bar/baz/dir/file.ext")))
+    (is (= -1
+         (check-path-shorthand "file.ext" nil)))
+
     ;; Strict shorthand: filename and absolute path.
     (is (= 1
          (check-path-shorthand "file.ext" "/foo/bar/baz/dir/file.ext")))

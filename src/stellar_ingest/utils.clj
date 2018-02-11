@@ -66,6 +66,22 @@
   []
   (str (get-application-name) " v." (get-application-version)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; System utilities and development helpers.
+
+(defn exit
+  "Exit the  application with  error code  errn (default  0) in  a CIDER-friendly
+  manner. If the function is called from inside the CIDER REPL, instead of exit,
+  which would kill  the REPL, and exception is thrown.  Otherwise System/exit is
+  called."
+  ([errn]
+   (let [errn (if (integer? errn) errn 1)
+         in-cider (not (nil? (resolve 'cider.nrepl.version/version)))]
+     (if in-cider
+       (throw (new Exception (str "\n*** EXITING PROGRAM WITH CODE " errn)))
+       (System/exit errn))))
+  ([] (exit 0)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Temporary  file utilities  - Must  be replaced  with portable  versions and
 ;; moved to another namespace.
@@ -96,7 +112,11 @@
   (last (clojure.string/split (file-to-string f) #"/")))
 
 (defn make-path [base file]
-  (str (file-to-string base) (file-to-string file)))
+  ;; If file is already an absolute  path, the just return it, otherwise combine
+  ;; base and file.
+  (if (fs/absolute? file)
+    file
+    (str (file-to-string base) (file-to-string file))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; A shorthand  path is a portion  of an path that  can be used to  identify the
@@ -121,16 +141,18 @@
   separators in place of one are correctly ignored.
   "
   [child parent]
-  (let [;;  Turn the two  paths into vectors  of their components  (as strings).
+  (let [;; Turn the two  paths into vectors  of their  components  (as strings).
         ;; Ingore multiple  consecutive path  separators, e.g.  "///".   Get the
         ;; length of the resulting vectors.
+        ;; For nil/empty string fs/split returns empty vector.
         c (into [] (filter #(not= "" %) (fs/split child)))
         p (into [] (filter #(not= "" %) (fs/split parent)))
         lc (count c)
         lp (count p)]
-    ;; If the child is longer or if  trailing section of parent differs, it's no
-    ;; shorthand (-1).
-    (if (or (> lc lp) (not= c (subvec p (- lp lc))))
+    ;; Meaningless inputs (child or parent: empty  string or nil) are treated as
+    ;; no  shorthand (-1).  With valid  inputs,  if the  child is  longer or  if
+    ;; trailing section of parent differs, it's no shorthand (-1).
+    (if (or (= 0 lc) (= 0 lp) (> lc lp) (not= c (subvec p (- lp lc))))
       -1
       ;; If the  child is shorter and  equals a trailing portion  of the parent,
       ;; then it's  a strict shorthand (1).  Otherwise child and parent  are the
