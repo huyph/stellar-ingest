@@ -20,6 +20,7 @@
   ;; TODO: check if any is unnecessary.
   (:require [stellar-ingest.core :as core]
             [stellar-ingest.utils :as utils]
+            [stellar-ingest.schema-validator :as vtor]
             ;; Logging
             [clojure.tools.logging :as log]
             ;; I/O.
@@ -30,6 +31,7 @@
             ;; Category theory types.
             [cats.core :as cats]
             [cats.monad.either :as either]
+            [cats.context :as ctx]
             ;; Cheshire JSON library
             [cheshire.core :as json])
   (:import
@@ -60,80 +62,41 @@
   [file]
   (deref (cats/fmap core/csv-data->maps (core/read-csv-data file))))
 
-(defn add-path-to-sources
-  [scm-file]
-  (let [scm (load-schema scm-file)
-        dir (utils/path-basename scm-file)]
-    (into [] (map (partial utils/make-path dir) (:sources scm)))))
-
-(defn get-subschema-by-source
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Given a schema map  and a source return a copy of  the schema containing only
+;; node and link  mappings that use that particular source. Include a mapping if
+;; its :source string is a shorthand for the source passed as parameter.
+(defn- get-subschema-by-source
   [scm src]
-  (let [ns (filter #(= (-> % :stellar-id :source) src)
-                   (-> scm :mapping :nodes))
-        ls (filter #(= (-> % :stellar-src :source) src)
-                   (-> scm :mapping :links))]
+  ;; Extract relevant mappings for nodes (ns) and links (ls).
+  (let [ns (filter
+            #(>= (utils/check-path-shorthand (-> % :stellar-id :source) src) 0)
+            (-> scm :mapping :nodes))
+        ls (filter
+            #(>= (utils/check-path-shorthand (-> % :stellar-src :source) src) 0)
+            (-> scm :mapping :links))]
+    ;; The filtered  mappings replace  the full  ones, so that  the rest  of the
+    ;; original schema is still available in the submappings.
+    ;; TODO: think if it makes sense to filter also classes/links.
     (-> scm
      (assoc-in [:mapping :nodes] (into [] ns))
      (assoc-in [:mapping :links] (into [] ls)))))
 
-(defn load-project
-  [scm-file]
-  (let [dir (utils/path-basename scm-file)
-        scm (load-schema scm-file)]
-    (into [] (zipmap 
-              (map (partial utils/make-path dir) (:sources scm))
-              (map (partial get-subschema-by-source scm) (:sources scm))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Preprocess  the  schema  mapping,   making  node  type  information  redily
-;; available to the functions that instantiate links.
-
-;; This functionality is already present in preprocess-all-link-mappings.
-
-;; (defn add-node-types-to-link-mapping
-;;   "Give a link mapping map, lookup the node types in the schema and add them
-;;   to the mapping information."
-;;   [m]
-;;   (let [;; Get the link type t from the mapping.
-;;         t (:name (:stellar-type m))
-;;         ;; Using  the  schema  definition,  extract  source  (:source)  and
-;;         ;; destination (:target) node types for the current link type.
-;;         [s d] ((juxt :source :target)
-;;                ;; Find  the link  schema definition  corresponding to  name
-;;                ;; t. There  must be  only one  and we  extract it  from the
-;;                ;; vector returned by filter.
-;;                (first
-;;                 (filter
-;;                  (comp (partial = t) :name)
-;;                  (:classLinks (:graphSchema scm)))))]
-;;     ;; Add type fields to the mapping m (inside the stellar-scr/dest maps).
-;;     (-> m
-;;         (assoc-in [:stellar-src :type] s)
-;;         (assoc-in [:stellar-dest :type] d))))
-
-;; (defn add-node-types-to-all-link-mappings
-;;   "Given the original  schema, return the preprocessed version,  in which node
-;;   type information is added for each link mapping."
-;;   [scm]
-;;   (assoc-in scm [:mapping :links]
-;;             (into []
-;;                   (map
-;;                    add-node-types-to-link-mapping
-;;                    (-> scm :mapping :links)))))
-
-;; (comment
-;;   ;; Quick test: (diff a  b) returns (only in a, only in b,  in both).  For an
-;;   ;; addition to the schema we get: nil,  the newly added node type entries in
-;;   ;; the link  mappings and the original  schema. We check that  the schema is
-;;   ;; preserved.
-;;   ;;
-;;   ;; TODO: move this to the tests.
-;;   (require '[clojure.data])
-;;   (let [[old new both]
-;;         (clojure.data/diff scm 
-;;                            (add-node-types-to-all-link-mappings scm))]
-;;     (= both scm))
-;;   ) ;; End comment
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Take a schema map and transform it into an ingestor project, which associates
+;; each  source with  the portion  of  schema (mappings)  which references  that
+;; particular source:  [ [path1 schema1]  [path2 schema2] [path3  schema3] ...].
+;; Return  such vector  wrapped in  either/right.   If the  input schema  didn't
+;; undergo validation or an exception is thrown, wrap the error in either/left.
+(defn- schema-to-project [scm]
+  (if (:validated scm)
+    (either/try-either
+     (into [] (zipmap
+               ;; Resolve sources against themselves: if :schema-file is present
+               ;; its directory is used to expand relative paths.
+               (map #(vtor/resolve-source % scm) (:sources scm))
+               (map (partial get-subschema-by-source scm) (:sources scm)))))
+    (either/left "Attempting to use schema before it was validated.")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -321,7 +284,7 @@
   (let [es (zipmap (range 0 (count es)) es)
         ;;
         grbef (new LocalBackEndFactory)
-        ;; 
+        ;;
         graph (.createGraph grbef gl (.getMap (Properties/create)))
 
         ;; A  lookup table  of node  IDs is  created, to  track correspondence
@@ -348,7 +311,7 @@
                            dst-orig (str (:dst-label e) (:dst-val e))
                            edgeid (str (key ed))]
                       {:label label :src src-orig :dst dst-orig :status
-                       (try 
+                       (try
                          (.addEdge graph edgeid src-orig dst-orig label (.getMap (Properties/create)))
                          (catch Exception e)
                          (finally nil)
@@ -398,48 +361,189 @@
         ls (map #(create-link-maps (second %) (load-csv (first %))) pro)]
     {:nodes (into [] (flatten ns)) :links (into [] (flatten ls))}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ingest data and  create a graph from a project  definition. The input project
+;; must be wrapped in an either.  The  result is an either wrapping the ingested
+;; EPGM graph (a Stellar-Utils Graph object) or an error message.
+;;
+;; TODO: improve implementation to full  exploit either. Currently the functions
+;; called here will always return a  right, unless an exception occurs, which is
+;; captured by the outer try-catch block.
+(defn- ingest-project [pro]
+  (try
+    (let [maps (cats/fmap create-maps-from-project pro)
+          ns (cats/fmap :nodes maps)
+          ls (cats/fmap :links maps)
+          lab (cats/fmap (comp :label second first) pro)]
+      ((cats/lift-m populate-graph) ns ls lab))
+    (catch Exception e (either/left (.getMessage e)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ingest a graph starting  from a schema. The schema is  passed as Clojure map,
+;; wrapped in an either. If passed as second argument, add :label to the schema.
+;; The schema is validated before proceeding.
+(defn- ingest-schema
+  ([s]
+   (let [scm (cats/bind s vtor/validate-schema)
+         pro (cats/bind scm schema-to-project)]
+     (ingest-project pro)))
+  ([s l]
+   (let [scm (cats/fmap #(if (map? %) (assoc % :label (str l)) identity) s)]
+     (ingest-schema scm))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ingest a  graph starting from  a schema file. The  file is passed  as String,
+;; containing the path.  Add :schema-file to the schema and, if passed as second
+;; argument, also :label.
+(defn- ingest-schema-file
+  ([f]
+   (let [scm (either/try-either (load-schema f))
+         scm (cats/fmap #(if (map? %) (assoc % :schema-file f) identity) scm)]
+     (ingest-schema scm)))
+  ([f l]
+   (let [scm (either/try-either (load-schema f))
+         scm (cats/fmap #(if (map? %) (assoc % :schema-file f) identity) scm)
+         scm (cats/fmap #(if (map? %) (assoc % :label (str l)) identity) scm)]
+     (ingest-schema scm))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ingestion protocol: causing weird arity exception: investigate.
+;;
+;; Protocol defining  the ingestion workflow based  on the input: a  path to the
+;; schema file, a schema map or an ingestor project.
+;;
+;; TODO: the protocol is just an initial attempt, it dispatches on generic types
+;; (string, map)  without checking their  content.  Special types are  needed to
+;; represent these elements.
+;;
+;; (defprotocol StellarIngestor
+;;   "Define the graph ingestion workflow for different inputs."
+;;   ;; Take necessary steps to create an ingestor project from the inputs and pass
+;;   ;; it (as either monad) to the function ingest-project. Get back and return an
+;;   ;; EPGM graph wrapped in an either monad.
+;;   (ingest [x] [x opts]
+;;     "Ingest data into a  graph. Parameter this can be the path  to a schema file
+;;     or a Clojure  map representing the schema. Parameter ops,  if provided, is a
+;;     map   containing  keys   that  should   be  added   or  overridden   in  the
+;;     schema (currently  only :label  is supported, to  specify the  graph label).
+;;     Return an EPGM graph wrapped in an either monad."))
+;;
+;; (extend-protocol StellarIngestor
+;;   ;; If a file path is passed, it is assumed to be the schema file path.
+;;   java.lang.String
+;;   (ingest [this]
+;;     (ingest-schema-file this))
+;;   (ingest [this opts]
+;;     (if (not (map? opts))
+;;       (either/left "Invalid argument: ingestion options must be a map.")
+;;       (let [l (str (:label opts))]
+;;         (if (empty? l)
+;;           (either/left "Invalid graph label.")
+;;           (ingest-schema-file this l)))))
+;;   ;; If a map is passed, it is assumed to be the non-validated schema map.
+;;   clojure.lang.PersistentArrayMap
+;;   (ingest [this] (ingest-schema this))
+;;   (ingest [this opts]
+;;     (if (not (map? opts))
+;;       (either/left "Invalid argument: ingestion options must be a map.")
+;;       (let [l (str (:label opts))]
+;;         (if (empty? l)
+;;           (either/left "Invalid graph label.")
+;;           (ingest-schema this l))))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Ingest function, created as quick replacement for the protocol.
+(defn ingest ""
+  ;; Just schema passed: file path or map.
+  ([s]
+   (if (string? s)
+     (ingest-schema-file s)
+     (if (map? s)
+       (ingest-schema (either/right s))
+       (either/left "Invalid input schema: file or map expected."))))
+   ;; Schema passed (file path or map) with options (map).
+   ([s opts]
+    (if (not (map? opts))
+      (either/left "Invalid argument: ingestion options must be a map.")
+      (let [l (str (:label opts))]
+        (if (empty? l)
+          (either/left "Invalid graph label.")
+          (if (string? s)
+            (ingest-schema-file s l)
+            (if (map? s)
+              (ingest-schema (either/right s) l)
+              (either/left "Invalid input schema: file or map expected."))))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; To run it from a terminal use:
-;; java -cp /path/to/stellar-ingest-*-standalone.jar stellar_ingest.schema schema_file graph_label
+;; java -cp /path/to/stellar-ingest-*-standalone.jar \
+;;                             stellar_ingest.schema \
+;;                                       schema_file \
+;;                                        output_dir \
+;;                                        graph_label
 ;;
-;; Requested file path can be either absolute or relative to the directory the
-;; above command is  issued in. The sources in the  schema should specified as
-;; files (without  directory) and are assumed  to be in the  same directory as
-;; the schema.
+;; Requested file path  can be either absolute or relative  to the directory the
+;; above command  is issued in.  The sources in the  schema can be  specified as
+;; absolute paths  or relative  to the  directory with the  schema file.  In the
+;; schema mappings, sources can be addressed with valid shorthand (i.e. trailing
+;; portion of path sufficient to uniquely identify).
 
 (defn -main [& args]
-  (let [glabel (second args)
-        scm-file (first args)
-        pro (load-project scm-file)
-        maps (create-maps-from-project pro)
-        graph (populate-graph (:nodes maps) (:links maps) glabel)]
-    (write-graph-to-gdf graph (str "/tmp/" glabel ".gdf"))
-    (write-graph-to-json graph (str "/tmp/" glabel ".json"))))
+  (if (not= (count args) 3)
+    (do (println "Required parameters: schema_file output_dir graph_label")
+        (utils/exit 1))
+    (let [scm-file (first args)
+          out-file (second args)
+          glabel (nth args 2)
+          graph (ingest scm-file {:label glabel})]
+      (if (either/right? graph)
+        ;; Function write-graph-to-json  creates intermediate dirs  and consumes
+        ;; all I/O exceptions. It returns status as boolean.
+        (if (write-graph-to-json (deref graph) out-file)
+          (println (str "Saved EPGM graph to " out-file))
+          (do (println (str "I/O error saving graph to " out-file))
+              (utils/exit 1)))
+        (do (println (str "Error: " (deref graph))) (utils/exit 1))))))
 
+;; (write-graph-to-gdf graph (str "/tmp/" glabel ".gdf"))
+;; (write-graph-to-json graph (str "/tmp/" glabel ".json"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Scratch
+;;
+;; TODO: Update to new unified data flow.
 
 (comment
 
   (def scm-file (io/resource "examples/imdb_norm/imdb_norm_schema.json"))
+  (def scm-file (.getPath scm-file))
   ;; (def scm (load-schema scm-file))
+  ;; (def scm (assoc scm :label "gtest"))
+  ;; (def scm (assoc scm :schema-file (.getPath scm-file)))
+  ;; (def scm (vtor/validate-schema scm))
   ;; scm
-  (def pro (load-project scm-file))
-  pro
+
+  ;; (def pro (load-project scm-file))
+  ;; ;; pro
+
+  (def pro (cats/bind scm schema-to-project))
+  ;; pro
+
+  (def graph (ingest-project pro))
+  ;; graph
 
   (def maps (create-maps-from-project pro))
   maps
   (def graph (populate-graph (:nodes maps) (:links maps) "testg"))
 
   ;; graph.toGraph().toCollection().write().json("out.epgm");
-  (-> graph
+  (-> (deref graph)
       .toGraph
       .toCollection
       .write
       (.json "/tmp/testg.epgm"))
 
-  (-> graph
+  (-> (deref graph)
       .toGraph
       .toCollection
       .write
@@ -456,7 +560,7 @@
   ;; may  break  the interface...  (would  require  special versions  of  each
   ;; function that take id  or a special property tag that  contains the id to
   ;; use).
-  
+
   ) ;; End comment
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -483,7 +587,7 @@
 
   ;; Later: we could could have a special marker for "subelement"
   ;; that splits a list argument as edge destination and builds multiple.
-  
+
   ;; YES:
   ;; 1) 1 record of 1 file is always enough to build a vertex/edge!
   ;; --> We go through all files twice. First run apply (to all files) vertex mappings
@@ -513,6 +617,60 @@
   ;; - no duplicates in mappings (there may be more mapping for one type
   ;;     but they shouldn't use all the same fields).
   ;; - no duplicate names in the properties.
-  ;; - check that src and dst of links are ids of the 
+  ;; - check that src and dst of links are ids of the
   ;; - every source-field pair used only once (i.e. in one mapping,
   ;;     but same field could be id and a property).
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Preprocess  the  schema  mapping,   making  node  type  information  redily
+;; available to the functions that instantiate links.
+
+;; This functionality  is already present in  preprocess-all-link-mappings. Do a
+;; of the two implementations and take the more readable/robust.
+
+;; (defn add-node-types-to-link-mapping
+;;   "Give a link mapping map, lookup the node types in the schema and add them
+;;   to the mapping information."
+;;   [m]
+;;   (let [;; Get the link type t from the mapping.
+;;         t (:name (:stellar-type m))
+;;         ;; Using  the  schema  definition,  extract  source  (:source)  and
+;;         ;; destination (:target) node types for the current link type.
+;;         [s d] ((juxt :source :target)
+;;                ;; Find  the link  schema definition  corresponding to  name
+;;                ;; t. There  must be  only one  and we  extract it  from the
+;;                ;; vector returned by filter.
+;;                (first
+;;                 (filter
+;;                  (comp (partial = t) :name)
+;;                  (:classLinks (:graphSchema scm)))))]
+;;     ;; Add type fields to the mapping m (inside the stellar-scr/dest maps).
+;;     (-> m
+;;         (assoc-in [:stellar-src :type] s)
+;;         (assoc-in [:stellar-dest :type] d))))
+
+;; (defn add-node-types-to-all-link-mappings
+;;   "Given the original  schema, return the preprocessed version,  in which node
+;;   type information is added for each link mapping."
+;;   [scm]
+;;   (assoc-in scm [:mapping :links]
+;;             (into []
+;;                   (map
+;;                    add-node-types-to-link-mapping
+;;                    (-> scm :mapping :links)))))
+
+;; (comment
+;;   ;; Quick test: (diff a  b) returns (only in a, only in b,  in both).  For an
+;;   ;; addition to the schema we get: nil,  the newly added node type entries in
+;;   ;; the link  mappings and the original  schema. We check that  the schema is
+;;   ;; preserved.
+;;   ;;
+;;   ;; TODO: move this to the tests.
+;;   (require '[clojure.data])
+;;   (let [[old new both]
+;;         (clojure.data/diff scm
+;;                            (add-node-types-to-all-link-mappings scm))]
+;;     (= both scm))
+;;   ) ;; End comment
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
