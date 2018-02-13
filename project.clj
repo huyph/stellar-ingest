@@ -29,6 +29,8 @@
                  [ring/ring-jetty-adapter "1.6.2"]
                  ;; Compojure routes with swagger docs.
                  [metosin/compojure-api "2.0.0-alpha17"]
+                 ;; HTTP client.
+                 [clj-http "3.7.0"]
                  ;; New utils: local memory backend.
                  [sh.serene/stellar-utils "0.2.0-SNAPSHOT"]
                  ;; Get version string from lein project.
