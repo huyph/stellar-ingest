@@ -39,7 +39,7 @@ jobs:
     - lein cloverage --coveralls
     - curl -F 'json_file=@target/coverage/coveralls.json' "https://coveralls.io/api/v1/jobs"
 
-  # Publish development artifacts (snapshots) from branch devel
+  # Publish development artifacts and docker images (snapshots) from branch devel
   - stage: publish
     if: branch = devel OR branch =~ ^develmock/
     script:
@@ -49,12 +49,13 @@ jobs:
         echo "Publishing development version $INGEST_VERSION";
         lein deploy;
         lein deploy-uberjar;
+        ./scripts/docker/dockerize.sh;
       else
         echo "CONFLICT publishing development version [$INGEST_VERSION] - tag [$INGEST_TAG]";
         exit 1;
       fi
       
-  # Publish stable artifacts (releases) from branch master
+  # Publish stable artifacts and docker images (releases) from branch master
   - stage: release
     if: branch = master OR branch =~ ^mastermock/
     script:
@@ -63,6 +64,7 @@ jobs:
         echo "Releasing version [$INGEST_VERSION]";        
         lein deploy;
         lein deploy-uberjar;
+        ./scripts/docker/dockerize.sh;
       else
         echo "CONFLICT releasing version [$INGEST_VERSION] - tag [$INGEST_TAG]";
         exit 1;
