@@ -5,10 +5,59 @@
 #
 # Copyright 2017-2018 CSIRO Data61
 #
-script_version="0.0.2"
+script_version="0.2"
 #
 # Released under the Apache License, Version 2.0
 # See http://www.apache.org/licenses/LICENSE-2.0
+################################################################################
+
+################################################################################
+# Project specific configuration.
+
+# Usage: in  your Git repository,  place this script at  the same level  as your
+# Dockerfile.  Edit  the section  right below these  instructions to  match your
+# project.
+
+# DOCKER_EMAIL??
+# $DOCKER_USER
+# $DOCKER_PASS
+
+### Command to obtain the string version.
+# The command should print the version string alone (on stdout).
+#
+# Java with Maven
+# version_cmd="mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
+#
+# Clojure with lein-project-version plugin
+version_cmd="lein project-version|tail -1"
+#
+# Clojure going through Maven
+# version_cmd="lein pom &> /dev/null && mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
+#
+# Dummy: always fail to get version.
+# version_cmd=false
+
+# Files: absolute or relative to this script's directory.
+files=(
+    "../../target/uberjar/stellar-ingest-\$version-standalone.jar"
+    "../../resources/imdb/imdb_small.csv"
+    "/tmp/data.csv"
+    "~/test.txt"
+)
+
+# The Dockerfile: absolute or relative to this script's directory.
+dockerfile="Dockerfile"
+
+### Version regular expressions.
+# Define the format of release and snapshot versions.
+#
+# Maven-style semantic versioning.
+snapshot_re="^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$"
+release_re="^[0-9]+\.[0-9]+\.[0-9]+$"
+# TODO: introduce  -hotfix version  too. Make  this an array  of pairs,  to link
+# version regex with docker tag.
+
+# END OF CONFIGURATION. DO NOT MODIFY THE REST OF THIS SCRIPT!
 ################################################################################
 
 ################################################################################
@@ -64,39 +113,6 @@ debug() {
         logger "$@"
     }
 }
-
-################################################################################
-# Project specific configuration.
-
-### Project identity
-# String to identify 
-project_id="stellar-ingest"
-# project_id="stellar-py"
-# project_id="stellar-search"
-
-### Command to obtain the string version.
-# The command should print the version string alone (on stdout).
-#
-# Java with Maven
-# version_cmd="mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
-#
-# Clojure with lein-project-version plugin
-version_cmd="lein project-version|tail -1"
-#
-# Clojure going through Maven
-# version_cmd="lein pom &> /dev/null && mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
-#
-# Dummy: always fail to get version.
-# version_cmd=false
-
-### Version regular expressions.
-# Define the format of release and snapshot versions.
-#
-# Maven-style semantic versioning.
-snapshot_re="^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$"
-release_re="^[0-9]+\.[0-9]+\.[0-9]+$"
-# TODO: introduce  -hotfix version  too. Make  this an array  of pairs,  to link
-# version regex with docker tag.
 
 ################################################################################
 # Utilities
@@ -205,6 +221,38 @@ get_docker_tag() {
     echo $tag
 }
 
+# Copy  files needed  for the  container to  the temporary  directory. The list must
+# include the Dockerfile (issue a warning if no files is called Dockerfile).
+# Parms: none. Use global variables scriptdir, tmpdir and files.
+# Return: the (possibly expanded) basename of the Dockerfile.
+copy_files() {
+    # Append the Dockerfile to the list of files to copy.
+    files+=("$script_dir/$dockerfile")
+
+    # Copy one by one the files specified in the array 'files'.
+    local ff
+    for f in "${files[@]}"; do
+        # Deferred expansion of "~/" in double quotes and escaped vars: e.g. \$version
+        ff=$(eval "echo $f")
+
+        # If it's a relative path, it must be relative to to this script's directory: prepend it.
+        if [[ ! "$ff" =~ ^/ ]]; then
+            ff="$script_dir/$ff"
+        fi
+
+        # Check that the file is accessible and copy it to temp directory.
+        if [ -r "$ff" ]; then
+            info "Found file: $ff"
+            cp -r $ff $tmpdir ||
+                { fatal "Unexpected error on file: $ff"; return 1; };
+        else
+            fatal "Cannot read file: $ff"
+            return 1
+        fi
+    done
+    echo $tmpdir/$(basename $ff)
+}
+
 ################################################################################
 # MAIN
 
@@ -238,86 +286,62 @@ tag=$(get_docker_tag) || { fatal "Exiting script."; exit 1; }
 info "Docker image will be tagged as: \"$version\" and \"$tag\"."
 
 # Copy necessary files to the temp directory and use as build context.
-# TODO: change to defer var expansion and move file list to configuration.
-# TODO: make this an associative array, host-path/docker-path.
-files=(
-    "../../target/uberjar/stellar-ingest-$version-standalone.jar"
-    "../../resources/imdb/imdb_small.csv"
-)
-
+# TODO: make this an associative array, host-path/docker-path?
 info "Processing files required for Docker container."
-for f in "${files[@]}"; do
-    ff="$script_dir/$f"
-    if [ -r "$ff" ]; then
-        info "Found file: $f"
-        cp -r $ff $tmpdir ||
-            { fatal "Unexpected error on file: $ff"; exit 1; };
-    else
-        fatal "Cannot read file: $f"
-        exit 1
-    fi
-done
+dfile=$(copy_files) || { fatal "Exiting script."; exit 1; }
+info "Ready to build image with dockerfile: $dfile"
 
-# The Dockerfile must be copied within the context.
-dockerfile=$script_dir/Dockerfile
-cp $dockerfile $tmpdir &> /dev/null ||
-    { fatal "Error copying $dockerfile to $tmpdir.";
-      fatal "Exiting script.";
-      exit 1; }
-
-# TODO: Capture failure and print a message.
-docker build -t $proj_slug:$version $tmpdir ||
-    { fatal "Docker error. Exiting script."; exit 1; }
-docker build -t $proj_slug:$tag $tmpdir ||
-    { fatal "Docker error. Exiting script."; exit 1; }
-
-# This script should be copied from my repo and source by theirs...
-# but it needs configuration... can I maintain it for all modules.
-# alterantively it could check its own version and refuse to run.
-
-# The build/publish and cleanup.
-
-# TODO: add 2 dry run options
-# that do not create the container and create but do not publish...
-
-exit 0
-
-
-
-
-
-
-
-INGEST_VERSION=$(cd ../..; lein pom &> /dev/null && mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
-# echo $INGEST_VERSION
-
-jarfile="../../target/uberjar/stellar-ingest-$INGEST_VERSION-standalone.jar"
-example="../../resources/imdb/imdb_small.csv"
-
-echo "Checking for required files:"
-echo "- $jarfile"
-echo "- $example"
-
-if [ ! -r "$jarfile" ] || [ ! -r "$example" ]; then
-    echo "Could not find some files required by the docker container."
-    echo "You must first run 'lein uberjar' in the project root, then"
-    echo "call this script from inside <project-root>/scripts/docker."
-    exit 1
+# Build the local Docker image, unless explicitly blocked.
+if [ -z "$STELLAR_NO_BUILD" ]; then
+    info "Building image with dockerfile: $dfile"
+    # TODO: Capture failure and print a message.
+    info "Build image: $proj_slug:$version"
+    docker build -f $dfile -t $proj_slug:$version $tmpdir ||
+        { fatal "Docker error. Exiting script."; exit 1; }
+    info "Build image: $proj_slug:$tag"
+    docker tag $proj_slug:$version $proj_slug:$tag ||
+        { fatal "Docker error. Exiting script."; exit 1; }
+else
+    warn "Environment var STELLAR_NO_BUILD is set."
+    error "Exiting without building."
+    exit 1;
 fi
 
-# Copy here files
-cp $jarfile .
-cp $example .
+# Publish the Docker image. Only do it from travis or if forced.
+if [ ! "$CI" = "true" ] || [ ! "$TRAVIS" = "true" ]; then
+    if [ -z "$STELLAR_FORCE_PUBLISH" ]; then
+        warn "Script appears to be running outside Travis. Set STELLAR_FORCE_PUBLISH at your own risk!"
+        error "Exiting script."
+        exit 1
+    else
+        warn "Script appears to be running outside Travis, but STELLAR_FORCE_PUBLISH set."
+        # Outside of Travis, the script is assument to be interactive. Check if user is logged in.
+        duser=$(docker info 2> /dev/null |grep Username)
+        if [ -z $duser ]; then 
+            docker login
+        fi
+    fi
+else
+    # Inside Travis login uses encrypted variables.
+    # docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+    docker login -u $DOCKER_USER -p $DOCKER_PASS
+fi
 
+# If the script arrived here, publish the image (unless explicitly denied).
+if [ -z "$STELLAR_NO_PUBLISH" ]; then
+    # TODO: Capture failure and print a message.
+    info "Publishing image: $proj_slug:$version"
+    docker push $proj_slug:$version ||
+        { fatal "Docker error. Exiting script."; exit 1; }
+    info "Publishing image: $proj_slug:$tag"
+    docker push $proj_slug:$tag ||
+        { fatal "Docker error. Exiting script."; exit 1; }
+else
+    warn "Environment var STELLAR_NO_PUBLISH is set."
+    error "Exiting without publishing."
+    exit 1;
+fi
 
-# Remove temporary file copies.
-rm $(basename $jarfile)
-rm $(basename $example)
+################################################################################
+# CHANGELOG
 
-# To start the container use script ingest.sh included in this directory.
-#
-# To directly run the container use:
-# mkdir -p /tmp/data/user; docker run -p 3000:3000 -v /tmp/data/user:/data/user stellar/ingest:0.0.2-SNAPSHOT
-#
-# Use this to run a shell in the container for debugging:
-# mkdir -p /tmp/data/user; docker run -p 3000:3000  -v /tmp/data/user:/data/user -ti stellar/ingest:0.0.2-SNAPSHOT bash
