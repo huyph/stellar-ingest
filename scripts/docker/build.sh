@@ -360,6 +360,6 @@ fi
 #     using the Dockerfile provided by the project.
 
 # v.0.1 - 1/1/2018 - Initial docker creation script for stellar-ingest
-
+#
 
 
