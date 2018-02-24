@@ -330,7 +330,7 @@ if [ ! "$CI" = "true" ] || [ ! "$TRAVIS" = "true" ]; then
 else
     # Inside Travis login uses encrypted variables.
     # docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-    docker login -u $DOCKER_USER -p $DOCKER_PASS
+    docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
 fi
 
 # If the script arrived here, publish the image (unless explicitly denied).
