@@ -18,10 +18,6 @@ script_version="0.2"
 # Dockerfile.  Edit  the section  right below these  instructions to  match your
 # project.
 
-# DOCKER_EMAIL??
-# $DOCKER_USER
-# $DOCKER_PASS
-
 ### Command to obtain the string version.
 # The command should print the version string alone (on stdout).
 #
@@ -34,18 +30,24 @@ version_cmd="lein project-version|tail -1"
 # Clojure going through Maven
 # version_cmd="lein pom &> /dev/null && mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
 #
+# Python with setup.py file.
+# version_cmd="python setup.py --version"
+#
 # Dummy: always fail to get version.
 # version_cmd=false
 
-# Files: absolute or relative to this script's directory.
+### Files to be copied inside the docker container.
+# absolute or relative to this script's directory.
+# You can list directories and use '.' and '..', but no wildcards.
 files=(
     "../../target/uberjar/stellar-ingest-\$version-standalone.jar"
     "../../resources/imdb/imdb_small.csv"
-    "/tmp/data.csv"
-    "~/test.txt"
+    # "/tmp/data.csv"
+    # "~/test.txt"
 )
 
-# The Dockerfile: absolute or relative to this script's directory.
+### The Dockerfile path: absolute or relative to this script's directory.
+# Same name expansion rules of files apply. 
 dockerfile="Dockerfile"
 
 ### Version regular expressions.
@@ -56,6 +58,10 @@ snapshot_re="^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$"
 release_re="^[0-9]+\.[0-9]+\.[0-9]+$"
 # TODO: introduce  -hotfix version  too. Make  this an array  of pairs,  to link
 # version regex with docker tag.
+#
+# Semantic versioning, with dev version, for python.
+# snapshot_re="^[0-9]+\.[0-9]+\.[0-9]+.dev[0-9]+$"
+# release_re="^[0-9]+\.[0-9]+\.[0-9]+$"
 
 # END OF CONFIGURATION. DO NOT MODIFY THE REST OF THIS SCRIPT!
 ################################################################################
@@ -317,7 +323,7 @@ if [ ! "$CI" = "true" ] || [ ! "$TRAVIS" = "true" ]; then
         warn "Script appears to be running outside Travis, but STELLAR_FORCE_PUBLISH set."
         # Outside of Travis, the script is assument to be interactive. Check if user is logged in.
         duser=$(docker info 2> /dev/null |grep Username)
-        if [ -z $duser ]; then 
+        if [ -z "$duser" ]; then 
             docker login
         fi
     fi
@@ -344,4 +350,14 @@ fi
 
 ################################################################################
 # CHANGELOG
+
+# v.0.2 - 23/2/2018 - Generalization for all stellar projects
+#   - Script has now a  project-specific configuration section: after specifying
+#     language-specific  parms  (to correctly  handle  versions)  and the  files
+#     needed  for the  docker container,  safely perform  build and  publication
+#     using the Dockerfile provided by the project.
+
+# v.0.1 - 1/1/2018 - Initial docker creation script for stellar-ingest
+
+
 
