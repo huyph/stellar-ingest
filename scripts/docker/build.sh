@@ -324,13 +324,15 @@ if [ ! "$CI" = "true" ] || [ ! "$TRAVIS" = "true" ]; then
         # Outside of Travis, the script is assument to be interactive. Check if user is logged in.
         duser=$(docker info 2> /dev/null |grep Username)
         if [ -z "$duser" ]; then 
-            docker login
+            docker login ||
+                { fatal "Docker error. Exiting script."; exit 1; }
         fi
     fi
 else
     # Inside Travis login uses encrypted variables.
     # docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-    docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+    docker login -u "$DOCKER_USER" -p "$DOCKER_PASS" ||
+        { fatal "Docker error. Exiting script."; exit 1; }
 fi
 
 # If the script arrived here, publish the image (unless explicitly denied).
