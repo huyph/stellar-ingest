@@ -27,6 +27,16 @@ env:
   global:
     - INGEST_VERSION: $(lein project-version 2> /dev/null)
     - INGEST_TAG: $(git describe --tags 2> /dev/null)
+    - secure:
+tvFri9dANU0EfA1l1aFwlo7Bd6LaHI3ljHS5sH93K14hoPPvFfMgrytyzgpEO+T+VDrm7oo529EZP93SRE5Re9yr+E2qOzGHB8nK+FHItu6kmmS07wMeUQUg3GaFBPH25sFERo4CzA+5pdqGm/iH8ZkB6OdSfoC3GQT5BxZvdt+l8CVJl6FIKkE4SZy+En80XBXB4GgCpJXcJZLtxJc\
+kNA/sHWVmLvOM+kUftFaJMGNoq6rSXGRtlqfS+s3XNmaLzfJ+yk6hxWQ+yDO8yTR5yN8bYc19gMtz9tJ1BJuNjnGhRE8dpYivYBqMp6lW4KvurPJJv7ZKo2l7fR9iimFaNbAtkiZ/G3lr2P6T3lB7Mxmm/iwVauHY1KKc3IXTnl124Cg5VlgFmOx5Iu99hssk+b6tfA/SiFYfHxyPgF\
+f3LPGt3uYgCQTYR882U1aLvTcj9z7PxpwzbiP/Fg+0LNEnvLiMKpKUSsbRxa6DK3AziIDNsnCKPpjRLTlPZRbxHCJdYql6ynuHSNdXgOZbTopcT3wGoj+U8FWUJ0H3NRMhXUeDROOsHDsY7mGJ1e/beVV5NuC7M4g+Ew5x5njvPkscGOv/d4OQId/vxQAlvdbYGJ2nOMNvASUIp8bhW\
+aO7qCIpL0f1iXpLIqLlNzBgCpMN7SUSHGlzf5vbe/yzb/mygCE=
+    - secure:
+tl/fRxOzICFSASKdIftJ7XNAg2YhTSTsyQVqUY6k6iikjWbD57dOC0Dx5+AFxVpOCxw24Irrrj371D6LpduxDpblSH1fWUeHIMXLHrqkITSH9TwoacUIBR1KStObayuescl8i2OulTNFNCMIJUgOEuE0Mmv38a+MmsD5JzimuRL01dtMvVsgT+n7yE/KZ0Eth59Q8lOLy7DKbcryAb+\
+xGPJIhH21NuvGS6oYz83EP914WSGmWs0TsgYiS0otRS6B2ykiBiRueWmUbowR5Ovq75AVZBtvkJki9iwBpadAdGxIr/2Zkh6hGNe//S+MYJeRV3c3lzF/JA2TWqN+n/dO8GhTGhgtYHRCIZyXecGrtSE5wmFcZi+io3cZGaUfM/j1tAE8/E1RR+55+88cx7HiYGgfUZpG5KtIROoJjD\
+xP0epltiQA60hJSE0Ry+JD3DXVBLQOrXuZtaJSqdwQP+79PP532NFEJxwrCbN869KqFvLFtTpp0HGdPPIchossDlGn6g8lZnb09FORf21Q5w3WyjEkW1hBgPr8PyH9orHV8Vj0tkTK5hIumPk0P1MtNGYU1nqOm6lV/Ii+50dedNGjxmL7iPYFIqwDL2rLHn81aQ/D8zGMiOIxSK+b+\
+CHLDxxhGjl+jqsZRk6VCL6afp+VZdQ11X2DCs70P/Atnd1EmVs=
 
 # Pipeline stages ##############################################################
 
