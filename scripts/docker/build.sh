@@ -14,57 +14,16 @@ script_version="0.2"
 ################################################################################
 # Project specific configuration.
 
-# Usage: in  your Git repository,  place this script at  the same level  as your
-# Dockerfile.  Edit  the section  right below these  instructions to  match your
-# project.
+# Usage: in your Git repository, place this script and its configuration file at
+# the same level as your Dockerfile.  See the included dockerize.md for detailed
+# usage instructions.
 
-### Command to obtain the string version.
-# The command should print the version string alone (on stdout).
-#
-# Java with Maven
-# version_cmd="mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
-#
-# Clojure with lein-project-version plugin
-version_cmd="lein project-version|tail -1"
-#
-# Clojure going through Maven
-# version_cmd="lein pom &> /dev/null && mvn -q -Dexec.executable=\"echo\" -Dexec.args='${project.version}' --non-recursive exec:exec"
-#
-# Python with setup.py file.
-# version_cmd="python setup.py --version"
-#
-# Dummy: always fail to get version.
-# version_cmd=false
+# Get script directory, to reference sibling files (e.g. Dockerfile).
+script_dir="$( cd "$(dirname "$0")" ; pwd -P )"
 
-### Files to be copied inside the docker container.
-# absolute or relative to this script's directory.
-# You can list directories and use '.' and '..', but no wildcards.
-files=(
-    "../../target/uberjar/stellar-ingest-\$version-standalone.jar"
-    "../../resources/imdb/imdb_small.csv"
-    # "/tmp/data.csv"
-    # "~/test.txt"
-)
-
-### The Dockerfile path: absolute or relative to this script's directory.
-# Same name expansion rules of files apply. 
-dockerfile="Dockerfile"
-
-### Version regular expressions.
-# Define the format of release and snapshot versions.
-#
-# Maven-style semantic versioning.
-snapshot_re="^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$"
-release_re="^[0-9]+\.[0-9]+\.[0-9]+$"
-# TODO: introduce  -hotfix version  too. Make  this an array  of pairs,  to link
-# version regex with docker tag.
-#
-# Semantic versioning, with dev version, for python.
-# snapshot_re="^[0-9]+\.[0-9]+\.[0-9]+.dev[0-9]+$"
-# release_re="^[0-9]+\.[0-9]+\.[0-9]+$"
-
-# END OF CONFIGURATION. DO NOT MODIFY THE REST OF THIS SCRIPT!
-################################################################################
+set -a
+. "$script_dir/dockerize.config"
+set +a
 
 ################################################################################
 ## Loggers ##
@@ -262,12 +221,6 @@ copy_files() {
 ################################################################################
 # MAIN
 
-# TODO: check that docker credentials are there, otherwise suggest login.
-
-# Get script directory, to reference sibling files (e.g. Dockerfile).
-# TODO make dockerfile name configurable, check it exists.
-script_dir="$( cd "$(dirname "$0")" ; pwd -P )"
-
 # Identify the project.
 info "Identifying current project."
 proj_slug=$(get_slug) || { fatal "Exiting script."; exit 1; }
@@ -300,7 +253,6 @@ info "Ready to build image with dockerfile: $dfile"
 # Build the local Docker image, unless explicitly blocked.
 if [ -z "$STELLAR_NO_BUILD" ]; then
     info "Building image with dockerfile: $dfile"
-    # TODO: Capture failure and print a message.
     info "Build image: $proj_slug:$version"
     docker build -f $dfile -t $proj_slug:$version $tmpdir ||
         { fatal "Docker error. Exiting script."; exit 1; }
@@ -337,7 +289,6 @@ fi
 
 # If the script arrived here, publish the image (unless explicitly denied).
 if [ -z "$STELLAR_NO_PUBLISH" ]; then
-    # TODO: Capture failure and print a message.
     info "Publishing image: $proj_slug:$version"
     docker push $proj_slug:$version ||
         { fatal "Docker error. Exiting script."; exit 1; }
@@ -354,10 +305,12 @@ fi
 # CHANGELOG
 
 # v.0.2 - 23/2/2018 - Generalization for all stellar projects
-#   - Script has now a  project-specific configuration section: after specifying
-#     language-specific  parms  (to correctly  handle  versions)  and the  files
-#     needed  for the  docker container,  safely perform  build and  publication
-#     using the Dockerfile provided by the project.
+#   - Script was renamed to dockerize.sh.
+#   - Script now loads  a project-specific configuration file,  with commands to
+#     obtain package version, list of files needed for the docker container.
+#   - Following project  specific configuration,  checks are made  (e.g.  docker
+#     image  tags are  derived from  source  version, images  are not  published
+#     unless running on CI, etc.) and the docker image is created/published.
 
 # v.0.1 - 1/1/2018 - Initial docker creation script for stellar-ingest
 
