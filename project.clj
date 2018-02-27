@@ -60,6 +60,8 @@
   :main stellar-ingest.app
   :target-path "target/%s"
   ;; Mac OSX seems to require explicit class list. Investigate.
+  ;; :jmv-opts ^:replace ["-server" "-Xms128m" "-Xmx8g"]
+  :jmv-opts ["-Xmx8g"]
   :profiles {:uberjar {:aot :all}})
 
 ;; Consider adding these in a testing profile (check versions):

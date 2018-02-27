@@ -330,23 +330,27 @@
   it to file in GDF format."
   [graph  ;; A StellarGraphBuffer object
    path] ;; Output path
+  (clojure.pprint/pprint graph (clojure.java.io/writer path))
   ;; (throw (new Exception "- Not yet implemented!"))
-  (-> graph
-      .toGraph
-      .toCollection
-      .write
-      (.gdf path)))
+  ;; (-> graph
+  ;;     .toGraph
+  ;;     .toCollection
+  ;;     .write
+  ;;     (.gdf path))
+  )
 
 (defn write-graph-to-json
   "Extract a graph  collection for the corresponding builder  object and write
   it to file in JSON (EPGM) format."
   [graph  ;; A StellarGraphBuffer object
    path]  ;; Output path
-  (-> graph
-      .toGraph
-      .toCollection
-      .write
-      (.json path)))
+  (clojure.pprint/pprint graph (clojure.java.io/writer path))
+  ;; (-> graph
+  ;;     .toGraph
+  ;;     .toCollection
+  ;;     .write
+  ;;     (.json path))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; With introduction of multi-source input the  schema is treated as a project
@@ -375,7 +379,9 @@
           ns (cats/fmap :nodes maps)
           ls (cats/fmap :links maps)
           lab (cats/fmap (comp :label second first) pro)]
-      ((cats/lift-m populate-graph) ns ls lab))
+      ;; ((cats/lift-m populate-graph) ns ls lab)
+      maps
+      )
     (catch Exception e (either/left (.getMessage e)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
