@@ -30,14 +30,6 @@
   (:gen-class))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; TODO: ingest uses  exceptions to signal all errors, they're  not thrown out
-;; of  functions, but  captured  in a  either monad.  To  consider: have  base
-;; functions that throw and wrapper functions that catch and return eiter.
-;;
-;; Java built-in exceptions:
-;; https://www.tutorialspoint.com/java/java_builtin_exceptions.htm
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Read/parse CSV.
 
 (defn read-csv-data
@@ -49,6 +41,23 @@
      ;; ERROR: with doall here, the lazy sequence gets loaded in memory.
      (doall
       (csv/read-csv reader)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Take a  file to be read  line-wise and a function  to apply to each  line and
+;; return a lazy  sequence of the results  from each line. The  file gets closed
+;; when the sequence is exausted.
+;;
+;; TODO: add IO exception handling to the reading part.
+(defn file-line-parse-seq [in-file & line-fn]
+  (let [line-fn (if (fn? (first line-fn)) (first line-fn) identity)
+        file-rdr (io/reader in-file)
+        ;; Like this buffer size can be specified... doesn't really help.
+        ;; file-rdr (java.io.BufferedReader. (java.io.FileReader. in-file) (* 10 1024))
+        lazy (fn lazy [^java.io.BufferedReader rdr]
+               (if-let [line (.readLine rdr)]
+                 (cons (line-fn line) (lazy-seq (lazy rdr)))
+                 (.close rdr)))]
+    (lazy file-rdr)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trivial sampler returning the first elements in a collection.

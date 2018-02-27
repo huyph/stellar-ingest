@@ -36,7 +36,9 @@
                  ;; Get version string from lein project.
                  [trptcolin/versioneer "0.2.0"]
                  ;; File system library
-                 [me.raynes/fs "1.4.6"]]
+                 [me.raynes/fs "1.4.6"]
+                 ;; Measure memory occupation
+                 [com.clojure-goes-fast/clj-memory-meter "0.1.0"]]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
             ;; Print version taken from project.clj
@@ -60,6 +62,8 @@
   :main stellar-ingest.app
   :target-path "target/%s"
   ;; Mac OSX seems to require explicit class list. Investigate.
+  ;; :jmv-opts ^:replace ["-server" "-Xms128m" "-Xmx8g"]
+  :jmv-opts ["-Xmx8g"]
   :profiles {:uberjar {:aot :all}})
 
 ;; Consider adding these in a testing profile (check versions):
