@@ -50,6 +50,103 @@
      (doall
       (csv/read-csv reader)))))
 
+
+(def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
+(def s "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/small.csv")
+
+(def f (with-open [reader (io/reader "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")]
+         (csv/read-csv reader)))
+
+(def ls (csv/read-csv (io/reader f)))
+(def lss (csv/read-csv (io/reader s)))
+
+(take 3 lss) (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"] ["1" "M" "0.9" "30" "0"] ["2" "F" "1" "20" "0"])
+
+(take 3 ls) (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"] ["1" "M" "0.9" "30" "0"] ["2" "F" "1" "20" "0"])
+(take 10 ls) 
+
+(count ls) 5607448 ;; This brought me to 5GB, but I do have the seq head...
+
+;; This seems to be the only way to avoid memory usage...
+;; (- 2735 2667) 68 --> Footprint 60MB, must be the chunck it load in memory to work with...
+;; This small footprint may become significant when the ingestor runs as service!
+;; And of course, we need it to close the file...
+;; It would seem that the huge memory consumption is from Clojure data structures bookkeepign,
+;; which sounds weird... Maybe the REPL keeps track of stuff....
+
+(count (csv/read-csv (io/reader f)))
+(count (csv/read-csv (io/reader s)))
+;; So it's about being functional. I must compose...
+
+;; Slurping is actually a good solution, since we know max file size...
+(def fc (slurp f))
+;; This closes the reader... but then how is it lazy???
+(def fcs (line-seq (io/reader f)))
+(take 10 fcs)
+
+;; Try and convert the slurped string into what read-csv would do.
+;; Where does the memory foot print come from?
+(split-with #(re-matches #"\n" %) fc)
+
+(def csvs (with-open [reader (io/reader s)]
+            (doall
+             (csv/read-csv reader))))
+
+(def csvf (with-open [reader (io/reader f)]
+            (doall
+             (csv/read-csv reader))))
+
+;; 1.4->5.8: with doall read-csv... Madness!!!
+
+(take 3 csvf)
+(["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"]
+ ["1" "M" "0.9" "30" "0"]
+ ["2" "F" "1" "20" "0"])
+
+(def mylist (doall (repeat 5000000 ["1" "M" "0.9" "30" "0"])))
+
+(type mylist)
+
+;; 1500
+
+;; (line-seq (BufferedReader. (StringReader. "1\n2\n\n3")))
+(def scsv (csv/read-csv fc)) ;; With slurp and this, I get the lazy seq.
+(def scsv (doall (csv/read-csv fc))) ;; So, doall read-csv is the deadly combo.
+
+;; doseq is like doall, but doens't keep the sequence head (which doall returns)
+
+;; Final test: it is the Clojure data structures that add overhead!
+;; 1476
+(def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
+;; 1477
+(def fc (slurp f))
+;; 1622
+(def myvec
+  (into []
+        (map #(into [] (clojure.string/split % #","))
+             (clojure.string/split-lines fc))))
+;; (- 5537 1476) 4061 --> 4GB to read a 120MB CSV file!!!
+
+;; But then why doesn't it happen with a regular vector...
+;; 1500
+(defn bvec [x] (vector (str x)
+                       (str (reduce str (take 1 (repeatedly #(rand-nth "MF")))))
+                       (str "0." (reduce str (take 4 (repeatedly #(rand-nth "0123456789")))))
+                       (reduce str (take 2 (repeatedly #(rand-nth "0123456789"))))
+                       (str (reduce str (take 1 (repeatedly #(rand-nth "01")))))))
+;; 1592
+(def mylist (into [] (map bvec (range 1 5607448))))
+;; (- 4520 1592) 2928 --> 3GB just to build the data structure.
+
+;; This doesn't seem to change memory consumption! It reuses stuff!
+
+
+
+;; TODO: change this function so that it only opens the reader and returns the
+;; lazy seq with the open reader. Problem is, closing when it's done.
+;; This would be clear in OO...
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trivial sampler returning the first elements in a collection.
 
