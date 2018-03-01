@@ -127,8 +127,8 @@
              (clojure.string/split-lines fc))))
 ;; (- 5537 1476) 4061 --> 4GB to read a 120MB CSV file!!!
 
-;; But then why doesn't it happen with a regular vector...
-;; 1500
+;; Using just 'repeat' on a sample datum doesn't show any change,
+;; bacause it's reusing stuff.
 (defn bvec [x] (vector (str x)
                        (str (reduce str (take 1 (repeatedly #(rand-nth "MF")))))
                        (str "0." (reduce str (take 4 (repeatedly #(rand-nth "0123456789")))))
@@ -137,6 +137,7 @@
 ;; 1592
 (def mylist (into [] (map bvec (range 1 5607448))))
 ;; (- 4520 1592) 2928 --> 3GB just to build the data structure.
+
 
 ;; This doesn't seem to change memory consumption! It reuses stuff!
 
