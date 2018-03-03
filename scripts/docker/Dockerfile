@@ -6,20 +6,22 @@ RUN apt-get update && apt-get install -y openjdk-9-jre-headless
 # Troubleshooting packages. Can be excluded in production.
 RUN apt-get install -y emacs-nox vim less curl
 
-RUN mkdir -p /opt/stellar
-COPY stellar-ingest-0.0.2-SNAPSHOT-standalone.jar /opt/stellar
-RUN ln -s /opt/stellar/stellar-ingest-0.0.2-SNAPSHOT-standalone.jar /opt/stellar/stellar-ingest.jar
+# Program installation dirs.
+RUN mkdir -p /opt/stellar-ingest/examples
 
-# RUN echo "some stuff" > /usr/local/bin/docker-entrypoint.sh
-# RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-# ENTRYPOINT ["docker-entrypoint.sh"]
+# Copy program binary.
+COPY stellar-ingest-*-standalone.jar /opt/stellar-ingest
+RUN ln -s /opt/stellar-ingest/stellar-ingest-*-standalone.jar /opt/stellar-ingest/stellar-ingest.jar
 
-RUN mkdir -p /data/user
-RUN chmod -R o+rwx /data/user
-RUN mkdir -p /data/examples
-COPY imdb_small.csv /data/examples
+# Copy example data.
+COPY imdb_small.csv /opt/stellar-ingest/examples
 
+# Make sure program dirs are readable by everyone.
+RUN chmod -R o+rX /opt/stellar-ingest
+
+# Ingestor REST port.
 EXPOSE 3000
 
-#CMD ["/usr/bin/java", "-cp /opt/stellar/stellar-ingest.jar", "stellar_ingest.rest"]
-CMD /usr/bin/java -cp /opt/stellar/stellar-ingest.jar stellar_ingest.rest
+# By default run the REST interface namespace.
+ENTRYPOINT ["/usr/bin/java", "-cp", "/opt/stellar-ingest/stellar-ingest.jar"]
+CMD ["stellar_ingest.rest"]

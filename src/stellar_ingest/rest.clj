@@ -100,17 +100,17 @@
 ;; TODO: implement heartbeat.
 ;; TODO: retry failed notifications.
 (defn- ingestion-ok [url sid]
-  (println (str "Sending OK to " url))
+  (log/info (str "Sending OK to " url))
   (try (http/post url
                   {:body (str "{\"sessionId\":\"" sid "\"}")})
-    (catch Exception e (println (.getMessage e)))))
+    (catch Exception e (log/info (.getMessage e)))))
 
 (defn- ingestion-abort [url sid reason]
-  (println (str "Sending Error to " url))
+  (log/info (str "Sending Error to " url))
   (try (http/post url
                   {:body (str "{\"sessionId\":\"" sid "\", "
                               "\"reason\":\"" reason "\"}")})
-  (catch Exception e (println (.getMessage e)))))
+  (catch Exception e (log/info (.getMessage e)))))
 
 ;; Ingestion procedure.
 (defn- do-ingest-impl
@@ -120,28 +120,35 @@
     curl :completeUrl
     aurl :abortUrl
    :as scm}]
-  (println "Entering do-ingest.")
+  (log/info "Entering do-ingest.")
   (if (or (nil? ses) (nil? lab) (nil? out) (nil? curl) (nil? aurl))
     (resp/bad-request
      "All fields (session, label, output and response URLs) are required.")
     ;; Problem:  since json  gets parsed  by  Compojure, it  doesn't replace  @.
     ;; TODO: Fixed here  as hack with rename keys, it  should be fitted properly
     ;; in the data processing pipeline.
-    (let [scm (dissoc scm :sessionId :label :output :completeUrl :abortUrl)
-          scm (clojure.walk/postwalk-replace
-               {(keyword "@type") :stellar-type
-                (keyword "@id") :stellar-id
-                (keyword "@src") :stellar-src
-                (keyword "@dest") :stellar-dest} scm)
-          graph (schema/ingest scm {:label lab})]
-      (println (str "Done with graph " (deref graph)))
-      ;; (response (str "Ingestion completed." (first (:sources scm))))
-      (if (either/left? graph)
-        (ingestion-abort aurl ses (deref graph))
-        ;; (clojure.pprint/pprint scm)
-        (if (schema/write-graph-to-json (deref graph) out)
-          (ingestion-ok curl ses)
-          (ingestion-abort aurl ses (str "I/O error on " out)))))))
+    (do
+      (log/info "-- Starting ingestion")
+      (log/info (str "   session: " ses))
+      (log/info (str "   label:   " lab))
+      (log/info (str "   outdir:  " out))
+      (log/info (str "   finish:  " curl))
+      (log/info (str "   abort:   " aurl))
+      (let [scm (dissoc scm :sessionId :label :output :completeUrl :abortUrl)
+            scm (clojure.walk/postwalk-replace
+                 {(keyword "@type") :stellar-type
+                  (keyword "@id") :stellar-id
+                  (keyword "@src") :stellar-src
+                  (keyword "@dest") :stellar-dest} scm)
+            graph (schema/ingest scm {:label lab})]
+        (log/info (str "Done with graph " (deref graph)))
+        ;; (response (str "Ingestion completed." (first (:sources scm))))
+        (if (either/left? graph)
+          (ingestion-abort aurl ses (deref graph))
+          ;; (clojure.pprint/pprint scm)
+          (if (schema/write-graph-to-json (deref graph) out)
+            (ingestion-ok curl ses)
+            (ingestion-abort aurl ses (str "I/O error on " out))))))))
 
 ;; Function directly called by the REST endpoint.
 (defn- do-ingest
@@ -156,7 +163,7 @@
      "All fields (session, label, output and response URLs) are required.")
     ;; Ingestion is run asynchronously in a new thread.
     (let [i (future (do-ingest-impl scm))]
-      (println "Sending OK to UI.")
+      (log/info "Sending OK to UI.")
       (resp/ok))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
