@@ -118,6 +118,15 @@
     file
     (str (file-to-string base) (file-to-string file))))
 
+(defn list-files-rec
+  "
+  Given  a directory,  scan  it  recursively and  return  a  vector of  absolute
+  paths  (strings) of  all the  regular files  it contains.  If no  directory is
+  specified, used the current working directory."
+  ([] (list-files-rec "."))
+  ([d] (map file-to-string
+            (fs/find-files* d #(fs/file? %)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; A shorthand  path is a portion  of an path that  can be used to  identify the
 ;; path in a  compact way: it is  defined as a trailing portion  of the original
@@ -172,3 +181,13 @@
   [child parents]
   ;; Take parents that are equal to child or for which child is a shorthand.
   (filter #(>= (check-path-shorthand child %) 0) parents))
+
+
+
+
+
+
+
+
+
+

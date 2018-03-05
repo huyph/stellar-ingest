@@ -270,11 +270,7 @@ included with its [source code](https://github.com/data61/stellar-ingest).
    (cmpj/context "/ingestor" []
      :tags ["Ingestor functions"]
      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-     ;; Original do-sample route using post and json for request.
-     ;; (POST "/do-sample" {body :body} (do-sample-csv-file body))
-     ;;
-     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-     ;; New do-sample using get and query parameters.
+     ;; Ingest data
      (POST "/ingest" {body :body}
        ;; :body [body {s/Any}]
        ;; :body [body {:schema String :output String :label String}]
@@ -292,6 +288,13 @@ included with its [source code](https://github.com/data61/stellar-ingest).
                    :completeUrl completeUrl, :abortUrl abortUrl,
                    :sources sources, :graphSchema graphSchema,
                    :mapping mapping}))
+     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     ;; List files in working directory.
+     (GET "/list-files" []
+       :summary "List files in the working directory."
+       ;; :description "Given a graph schema  (containing CSV sources) and a label,
+       ;;              ingest a graph to EPGM"
+       (response {:files (into [] (utils/list-files-rec))}))
      ) ;; End ingestor routes
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; Default: route not found!
