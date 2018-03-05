@@ -294,7 +294,7 @@ included with its [source code](https://github.com/data61/stellar-ingest).
        :summary "List files in the working directory."
        ;; :description "Given a graph schema  (containing CSV sources) and a label,
        ;;              ingest a graph to EPGM"
-       (response {:files (into [] (utils/list-files-rec))}))
+       (response {:files (into [] (utils/filter-files-rec #".*\.csv"))}))
      ) ;; End ingestor routes
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; Default: route not found!

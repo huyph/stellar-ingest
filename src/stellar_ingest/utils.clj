@@ -127,6 +127,15 @@
   ([d] (map file-to-string
             (fs/find-files* d #(fs/file? %)))))
 
+(defn filter-files-rec
+  "
+  Given a directory  and a regular expression, scan it  recursively and return a
+  vector of absolute  paths (strings) of all the regular  files found under that
+  directory that  match the regular  expression.  If no directory  is specified,
+  used the current working directory."
+  ([re] (filter-files-rec "." re))
+  ([d re] (filter #(re-matches re %) (list-files-rec d))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; A shorthand  path is a portion  of an path that  can be used to  identify the
 ;; path in a  compact way: it is  defined as a trailing portion  of the original
