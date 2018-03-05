@@ -22,6 +22,9 @@ RUN chmod -R o+rX /opt/stellar-ingest
 # Ingestor REST port.
 EXPOSE 3000
 
+# Interpret relative paths coming from REST request as being based here.
+WORKDIR /opt/stellar/data
+
 # By default run the REST interface namespace.
 ENTRYPOINT ["/usr/bin/java", "-cp", "/opt/stellar-ingest/stellar-ingest.jar"]
 CMD ["stellar_ingest.rest"]
