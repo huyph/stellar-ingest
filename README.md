@@ -14,6 +14,10 @@ Analytics platform](https://www.stellargraph.io/) developed by [CSIRO
 Data61](http://data61.csiro.au/). This module takes care of ingesting relational
 data, stored as CSV files, into a graph, for further processing by _Stellar_.
 
+If you are interested in running the entire _Stellar_ platform, please refer to
+the instructions on the [main Stellar
+repository](https://github.com/data61/stellar).
+
 ## License
 
 Copyright 2017-2018 CSIRO Data61
