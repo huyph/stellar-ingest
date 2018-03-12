@@ -10,7 +10,7 @@
 ## Introduction
 
 This repository hosts **_stellar-ingest_**, a module of the [Stellar - Graph
-Analytics platform](https://www.stellargraph.io/) developed by [CSIRO
+Analytics platform](https://github.com/data61/stellar) developed by [CSIRO
 Data61](http://data61.csiro.au/). This module takes care of ingesting relational
 data, stored as CSV files, into a graph, for further processing by _Stellar_.
 
@@ -69,15 +69,15 @@ _stellar-ingest_ to operate:
 - a  JSON-encoded [graph schema](doc/schema.md), including  mappings between CSV
   columns and graph elements.
 
-The resulting schema is represented using the Extended Property Graph Model
+The resulting graph is represented using the Extended Property Graph Model
 ([EPGM](https://dbs.uni-leipzig.de/file/EPGM.pdf)) and stored using its JSON
-serialization format. For additional details see also the [_stellar-utils-
-documentation](https://github.com/data61/stellar-utils/blob/master/README.md).
+serialization format. For additional details see also the [stellar-utils
+documentation](https://github.com/data61/stellar-utils).
 
 __Note__: the _Stellar_ platform includes a Python client library, which allows
 to access all modules from Python scripts, using the REST API.  An example,
-which includes data ingestion, can be found [here]
-(https://github.com/data61/stellar-py/blob/0.2.0/examples/stellar.ipynb).
+which includes data ingestion, can be found
+[here](https://github.com/data61/stellar-py/blob/v0.2.1/examples/stellar.ipynb).
 
 ### CLI ingestion
 
@@ -92,13 +92,14 @@ java \
   arbitrary-graph-label
 ```
 
-A ready-to-use example is provided with the source code repository:
+A ready-to-use example is provided with the source code repository. It represent
+a (tiny) film database (_FilmDB_), in the spirit of the _Internet Movie Database
+(IMDB)_,  that  can  be used  to  create  a  graph  linking films  with  actors,
+non-acting staff and production companies.
 
 ``` bash
-# Move the example directory.
 cd resources/examples/imdb_norm
 
-# Run this command as it is.
 java \
   -cp ../../../target/uberjar/stellar-ingest-0.1.0-standalone.jar \
   stellar_ingest.schema \
@@ -117,11 +118,11 @@ To run _stellar-ingest_ in server mode and access the REST API issue this comman
 ``` bash
 java \
   -cp ./target/uberjar/stellar-ingest-0.1.0-standalone.jar \
-  stellar_ingest.schema
+  stellar_ingest.rest
 ```
 
-After `stellar_ingest.schema`  it is possible to  specify a port number  for the
-server to  listen on. The  default port is 3000.  Along with REST  request, this
+After `stellar_ingest.rest`  it is possible to  specify a port number  for the
+server to  listen on. The  default port is 3000.  Along with REST  requests, this
 port also serves an API documentation page. To see it point a web browser to:
 
 ```
@@ -136,31 +137,27 @@ schema, as used in the CLI ingestion process, enriched by a few elements:
 ``` json
 {
   "abortUrl": "https://requestb.in/HERE-YOUR-BIN",
-  "completeUrl": "https://requestb.in/HERE-YOUR-BIN"
+  "completeUrl": "https://requestb.in/HERE-YOUR-BIN",
   "sessionId": "example-session",
   "label": "imdb",
   "output": "imdb_output",
   
-  # This part is the same as the CLI ingestion.
-  "sources": {},
-  "mapping": {},
-  "graphSchema": {},
+  "sources": [ ... ],
+  "mapping": { ... },
+  "graphSchema": { ... },
 }
 ```
 
-You can try it on the included  imdb example. Add additional JSON file, with the
+You can try it on the included  MovieDB example. Add additional JSON file, with the
 additional required elements, is provided (`imdb_norm_schema_rest.json`).
 
 ``` bash
-# Move the example directory.
 cd resources/examples/imdb_norm
 
-# Start the server.
 java \
   -cp ../../../target/uberjar/stellar-ingest-0.1.0-standalone.jar \
   stellar_ingest.rest
 
-# Perform the request.
 curl -X POST \
      --header 'Content-Type: application/json' \
      --header 'Accept: application/json' \
@@ -175,3 +172,12 @@ this repository.
 
 
 
+
+<!--  LocalWords:  devel Analytics CSIRO CSV Clojure Leiningen lein uberjar CLI
+ -->
+<!--  LocalWords:  RESTful API http JSON EPGM utils cp FilmDB IMDB cd imdb json
+ -->
+<!--  LocalWords:  localhost ingestor abortUrl completeUrl sessionId MovieDB
+ -->
+<!--  LocalWords:  graphSchema
+ -->

@@ -171,18 +171,10 @@
 
 (def ^{:private true} description
 "
-This is the  data ingestion module of the Investigative  Analytics project.
-Its current version is **0.0.2-SNAPSHOT**.
+  This is the  data ingestion module of the Stellar project.
 
 If you see this  page the _Ingestor_ is up and running and  you can access its
 REST API.
-
-In the current API version only CSV file sampling facilities are available, under
-the `/sampler/` address.
-
-For a complete description of the _Ingestor_ and its usage please refer to the
-[README file](https://github.com/data61/stellar-ingest/blob/master/README.md)
-included with its [source code](https://github.com/data61/stellar-ingest).
 ")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -205,9 +197,9 @@ included with its [source code](https://github.com/data61/stellar-ingest).
                   ;; :summary "Just a global summary."
                   ;; General markdown-based API description.
                   :description description
-                  :contact {:name "CSIRO Data61 - Investigative Analytics project"}
+                  :contact {:name "CSIRO Data61 - Stellar project"
                             ;; :email "foo@example.com"
-                            ;; :url "https://www.data61.csiro.au/"}
+                            :url "https://www.data61.csiro.au/"}
                   :license {:name "Apache License, Version 2.0"
                             :url "http://www.apache.org/licenses/LICENSE-2.0"
                             }}}}}

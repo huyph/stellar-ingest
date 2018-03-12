@@ -3,7 +3,7 @@
 The official [Docker images](https://hub.docker.com/r/data61/stellar-ingest/tags/)
 can be used to run _stellar-ingest_ via CLI and REST.
 
-Below  are  the  steps  required  to   ingest  the  imdb  example  dataset  (see
+Below  are  the  steps  required  to   ingest  the  FilmDB  example  dataset  (see
 [README.md](../README.md)).
 
 ## CLI ingestion via Docker image
@@ -47,7 +47,7 @@ docker run \
 The first two  command options are explained above. Option  `-p` makes port 3000
 inside the container, accessible to the host (with the same number).
 
-Now, trigger ingestions with a REST API request:
+Now, trigger ingestion with a REST API request:
 
 ```bash
 curl -X POST \
@@ -59,7 +59,7 @@ curl -X POST \
 
 ## Advanced Docker usage
 
-For those who are more familiar with Docker, the container's _entry point_ calls
+For those who are familiar with Docker internals, the container's _entry point_ calls
 the Java  virtual machine with  the correct  classpath set, while  its _command_
 invokes the main function in  namespace `stellar_ingest.rest`, as it can be
 seen in _stellar-ingest_ [Dockerfile](../scripts/docker/Dockerfile):
@@ -73,7 +73,7 @@ CMD ["stellar_ingest.rest"]
 ### Runtime parameters
 
 It  is therefore  possible, by  passing  additional command  line parameters  to
-`docker run`, to  run as different application namespace or  function (as in the
+`docker run`, to  run a different application namespace or  function (as in the
 CLI ingestion example).
 
 Also, it is  possible to pass additional  options to the JVM  running inside the
