@@ -1,79 +1,55 @@
-################################################################################
-# Stellar Ingest CI workflow
-#
-# - All commits, on all branches, get built and unit-tested.
-# - Commits on branch devel (snapshots)  and master (releases), get packaged and
-#   the binary artifacts (jars) published in the maven repository.
-# - Commits from  master get  published only  if the version  string is  a valid
-#   non-snapshot     and    they     have    an     annotated    version     tag
-#   (stellar-ingest-VERSION), otherwise the step fails.
-# - Commits  from devel  get published  only if  the version  string is  a valid
-#   snapshot, otherwise  the step fails.  If  they have any tag  that suggests a
-#   release version, the process fails as well.
-# - Branches named 'develmoch/*'  and 'mastermoch/*' are treated  like devel and
-#   master  respectively and  should  be  used exclusively  to  test/fix the  CI
-#   workflow.
-#
-################################################################################
-
-# Language settings ###########################################################
-
 language: clojure
 jdk: oraclejdk8
-
-# Environment #################################################################
 
 env:
   global:
     - INGEST_VERSION: $(lein project-version 2> /dev/null)
-    - INGEST_TAG: $(git describe --tags 2> /dev/null)
+    - INGEST_TAG: $(git describe --tags|head -1 2> /dev/null)
 
-# Pipeline stages ##############################################################
+branches:
+  only:
+  - master
+  - devel
+  - "/^feature\\/.+$/"
+  - "/^release\\/.+$/"
+  - "/^hotfix\\/.+$/"
+  - "/^v\\d+\\.\\d+(\\.\\d+)?(-\\S*)?$/"
 
-jobs:
+script:
+  - |
+    lein cloverage --coveralls &&
+    curl -F 'json_file=@target/coverage/coveralls.json' "https://coveralls.io/api/v1/jobs";
+    echo ""; echo ""; echo "branch: $TRAVIS_BRANCH, version: $INGEST_VERSION, event: $TRAVIS_EVENT_TYPE, travis_tag: $TRAVIS_TAG, ingest_tag: $INGEST_TAG"
 
-  include:
-  # Unit-testing is always performed.
-  - stage: test
-    script:
-    - lein cloverage --coveralls
-    - curl -F 'json_file=@target/coverage/coveralls.json' "https://coveralls.io/api/v1/jobs"
-
-  # Publish development artifacts and docker images (snapshots) from branch devel
-  - stage: publish
-    if: branch = devel OR branch =~ ^develmock/
-    script:
-    - echo "Attempting to publish development version [$INGEST_VERSION] - tag [$INGEST_TAG]";
-    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]] &&
-         [[ ! $INGEST_TAG =~ ^stellar-ingest-[0-9]+\.[0-9]+\.[0-9]$ ]] ; then
-        echo "Publishing development version $INGEST_VERSION";
+after_success:
+  - |   # deploy snapshot
+    if [ "$TRAVIS_EVENT_TYPE" == push -a "$TRAVIS_BRANCH" == "devel" ]; then
+      if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+        echo "Publishing snapshot from devel branch.";
         lein deploy;
         lein deploy-uberjar;
         ./scripts/docker/dockerize.sh;
       else
-        echo "CONFLICT publishing development version [$INGEST_VERSION] - tag [$INGEST_TAG]";
-        exit 1;
-      fi
-      
-  # Publish stable artifacts and docker images (releases) from branch master
-  - stage: release
-    if: branch = master OR branch =~ ^mastermock/
-    script:
-    - if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
-         [[ ! $INGEST_TAG = "stellar-ingest-$INGEST_VERSION" ]] ; then
-        echo "Releasing version [$INGEST_VERSION]";        
+        echo "ERROR invalid snapshot version."; exit 1;
+      fi;
+    fi
+
+  - |  # deploy release
+    if [ "$TRAVIS_EVENT_TYPE" == push -a -n "$TRAVIS_TAG" ]; then
+      if [ "$TRAVIS_TAG" == "v$INGEST_VERSION" ]; then
+        echo "Publishin release version $INGEST_VERSION with tag $TRAVIS_TAG";
         lein deploy;
         lein deploy-uberjar;
         ./scripts/docker/dockerize.sh;
       else
-        echo "CONFLICT releasing version [$INGEST_VERSION] - tag [$INGEST_TAG]";
-        exit 1;
-      fi
-
-# # Notifications ################################################################
+        echo "ERROR version/tag mismatch $INGEST_VERSION/$TRAVIS_TAG"; exit 1;
+      fi;
+    fi
 
 notifications:
   slack:
     secure: Y87bsz8T29L2SRL4Sh5e6JPPLd2AsSx42Cyo6GodSU7Yu+gduHKx+/iLzxr/N2sqTliuMMRDLpHP/4NuhMVhxyjC+Fld0aFVUwJdKnB+K+8Id8LdZqh0SznKYozbESDh+GMKwzHEGS2PSVqvlcFziuYmjAoXtufZS/k5xXuju4E3Ge3lgZqynOZ88UPVIPkAFaEBKrMG8izrzF8R6plrceH5DrQW3uF/JQURpQF0DdDAQzZuSbBgCRVyzP7vc7RkDiXJ3YbCcNQJs5WlUHdh1euKaK8eqwlqzJrlZV/qINR277GjUKV8tJO/iGW3AahS4M4NkWMdXyPPEpP1XzSmc1tIio8jp6syD/mLuucMu0F+QeR/SlvksxKqaUFZtlQBs94uFOx40Ew+fFbSmCm6UNeMpcwHtPR2t9SOSuh7fXN50X+5+fSXdrfe8Q5BgACDhl5C4li56zejLqN9//81LFnHFrDbGjaYZNAxrxj7shV2lTJiTuNbgK+WwfiZGz3copnDEAY0zPDP9aeK1Z4I5/74XzMVfIk76609MKboWO/e075mbKI0Gw7qv3gL9disokShOksUMCMEBLZMmpase7+7xSnj0jEHkjNhirMQ7UfsEGjE00qJlRye8srkmHSbphd7b5GogQz9EclOVtqn87KZagM9p1w/pQ9l2s+Cz8E=
   on_success: change
   on_failure: always
+
+
