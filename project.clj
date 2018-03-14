@@ -32,7 +32,7 @@
                  ;; HTTP client.
                  [clj-http "3.7.0"]
                  ;; New utils: local memory backend.
-                 [sh.serene/stellar-utils "0.2.0-SNAPSHOT"]
+                 [sh.serene/stellar-utils "0.2.1"]
                  ;; Get version string from lein project.
                  [trptcolin/versioneer "0.2.0"]
                  ;; File system library
