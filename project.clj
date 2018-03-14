@@ -1,7 +1,7 @@
 (defproject au.csiro.data61.stellar/stellar-ingest "0.1.0"
     
   :description "Stellar data ingestion module."
-  :url "http://serene.sh/"
+  :url "http://data61.csiro.au/"
 
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"

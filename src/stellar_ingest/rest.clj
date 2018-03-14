@@ -245,7 +245,6 @@ REST API.
      (GET "/do-sample" {parms :params}
        ;; TODO: why do I get error with samples as Integer???
        ;; :query-params [file :- String, samples :- Integer]
-       ;; E.g.: /home/amm00b/WORK/Dev/Stellar/stellar-ingest-pub/resources/test.csv
        :query-params [file :- String,
                       samples :- String]
        ;; :return String
