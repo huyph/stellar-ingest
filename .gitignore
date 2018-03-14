@@ -10,3 +10,6 @@ pom.xml.asc
 .hgignore
 .hg/
 /spark-warehouse
+
+# To-do list should be available at all times.
+TODO.md

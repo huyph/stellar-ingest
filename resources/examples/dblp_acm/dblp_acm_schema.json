@@ -1,0 +1,70 @@
+{
+  "sources" : [ "nodes.csv", "coauthors.csv", "same.csv" ],
+  "graphSchema" : {
+    "classes" : [ {
+      "name" : "Author",
+      "props" : {
+        "name" : "string",
+        "identifier" : "string",
+        "category" : "integer"
+      }
+    } ],
+    "classLinks" : [ {
+      "name" : "coauthored",
+      "source" : "Author",
+      "target" : "Author"
+    }, {
+      "name" : "issame",
+      "source" : "Author",
+      "target" : "Author"
+    } ]
+  },
+  "mapping" : {
+    "nodes" : [ {
+      "@type" : "Author",
+      "@id" : {
+        "source" : "nodes.csv",
+        "column" : "Id"
+      },
+      "name" : {
+        "source" : "nodes.csv",
+        "column" : "Label"
+      },
+      "identifier" : {
+        "source" : "nodes.csv",
+        "column" : "Extref_Id"
+      },
+      "category" : {
+        "source" : "nodes.csv",
+        "column" : "Type"
+      }
+    } ],
+    "links" : [ {
+      "@type" : {
+        "source" : "Author",
+        "name" : "coauthored"
+      },
+      "@src" : {
+        "source" : "coauthors.csv",
+        "column" : "Source"
+      },
+      "@dest" : {
+        "source" : "coauthors.csv",
+        "column" : "Target"
+      }
+    }, {
+      "@type" : {
+        "source" : "Author",
+        "name" : "issame"
+      },
+      "@src" : {
+        "source" : "same.csv",
+        "column" : "Source"
+      },
+      "@dest" : {
+        "source" : "same.csv",
+        "column" : "Target"
+      }
+    } ]
+  }
+}

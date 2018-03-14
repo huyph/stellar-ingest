@@ -1,0 +1,18 @@
+version: '2'
+services:
+
+  # The ingestor. Rest API on port 3000.
+  ingest:
+    #command: bash -c "mkdir -p /tmp/data/user"
+    image: data61/stellar-ingest:latest
+    # Example: no env var is currently used by the ingestor
+    environment:
+      - DEBUG=false
+      - SOMEVER=123
+    #entrypoint: flask initdb
+    #depends_on:
+    #  - db
+    ports:
+      - 3000:3000
+    volumes:
+      - /tmp/data/user:/data/user

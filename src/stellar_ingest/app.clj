@@ -18,6 +18,7 @@
 
 (ns stellar-ingest.app
   (:require [stellar-ingest.core :as core]
+            [stellar-ingest.utils :as utils]
             [clojure.tools.cli :as cli]
             [cats.core :as cats]
             [cats.monad.either :as either])
@@ -27,7 +28,7 @@
 ;; Definitions needed by the main function.
 
 (def ^{:private true} cli-banner
-  (str "--- Stellar Ingest, v.0.0.2-SNAPSHOT\n"
+  (str "--- " (utils/get-application-banner) "\n"
        "Copyright 2017, CSIRO Data61 - All rights reserved\n"))
 
 (def ^{:private true} cli-options

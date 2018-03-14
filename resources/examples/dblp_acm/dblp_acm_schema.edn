@@ -1,0 +1,39 @@
+;; Stellar-Ingest schema definition.
+;;
+;; This example is maintained in EDN form to simplify experimenting in Clojure
+;; and to have comments.
+
+(def scm
+  {:sources ["nodes.csv"
+             "coauthors.csv"
+             "same.csv"],
+   
+   :graphSchema
+   {
+    :classes
+    ;; Id,Extref_Id,Type,Label
+    [{:name "Author", :props {:name "string" :identifier "string", :category "integer"}}]
+
+    ;; Source,Rel,Target
+    :classLinks
+    [{:name "coauthored", :source "Author", :target "Author"}
+     {:name "issame", :source "Author", :target "Author"}]},
+   
+   :mapping
+   {
+    :nodes
+    [{:stellar-type "Author",
+      :stellar-id {:source "nodes.csv", :column "Id"},
+      :name {:source "nodes.csv", :column "Label"}
+      :identifier {:source "nodes.csv", :column "Extref_Id"}
+      :category {:source "nodes.csv", :column "Type"}}],
+    
+    :links
+    [{:stellar-type {:source "Author", :name "coauthored"},
+      :stellar-src {:source "coauthors.csv", :column "Source"},
+      :stellar-dest{:source "coauthors.csv", :column "Target"}}
+     {:stellar-type {:source "Author", :name "issame"},
+      :stellar-src {:source "same.csv", :column "Source"},
+      :stellar-dest{:source "same.csv", :column "Target"}}] }}
+  
+  ) ;; End def scm

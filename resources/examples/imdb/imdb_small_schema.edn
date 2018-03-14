@@ -1,0 +1,67 @@
+{:sources ["imdb_small.csv"],
+   
+ :graphSchema
+ {
+  :classes
+  [{:name "Film", :props {:title "string" :year "string", :classification "string" , :isforeign "boolean"}}
+   {:name "Person", :props {:name "string"}}
+   {:name "Company", :props {:name "string"}}]
+  
+  :classLinks
+  [{:name "actedin", :source "Person", :target "Film"}
+   {:name "workedin", :source "Person", :target "Film"}
+   {:name "produced", :source "Company", :target "Film"}]},
+ 
+ :mapping
+ {
+  :nodes
+  [{:stellar-type "Film",
+    :stellar-id {:source "imdb_small.csv", :column "id"},
+    :title {:source "imdb_small.csv", :column "filmtitle"}
+    :year {:source "imdb_small.csv", :column "year"}
+    :classification {:source "imdb_small.csv", :column "genre"}
+    :isforeign {:source "imdb_small.csv", :column "foreign"}}
+   {:stellar-type "Company",
+    :stellar-id {:source "imdb_small.csv", :column "corporation"},
+    :name {:source "imdb_small.csv", :column "corporation"}}
+   {:stellar-type "Person",
+    :stellar-id {:source "imdb_small.csv", :column "cast1"},
+    :name {:source "imdb_small.csv", :column "cast1"}}
+   {:stellar-type "Person",
+    :stellar-id {:source "imdb_small.csv", :column "cast2"},
+    :name {:source "imdb_small.csv", :column "cast2"}}
+   {:stellar-type "Person",
+    :stellar-id {:source "imdb_small.csv", :column "cast3"},
+    :name {:source "imdb_small.csv", :column "cast3"}}
+   {:stellar-type "Person",
+    :stellar-id {:source "imdb_small.csv", :column "crew1"},
+    :name {:source "imdb_small.csv", :column "crew1"}}
+   {:stellar-type "Person",
+    :stellar-id {:source "imdb_small.csv", :column "crew2"},
+    :name {:source "imdb_small.csv", :column "crew2"}}
+   {:stellar-type "Person",
+    :stellar-id {:source "imdb_small.csv", :column "crew3"},
+    :name {:source "imdb_small.csv", :column "crew3"}}],
+  
+  :links
+  [{:stellar-type {:source "Company", :name "produced"},
+    :stellar-src {:source "imdb_small.csv", :column "corporation"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}
+   {:stellar-type {:source "Person", :name "actedin"},
+    :stellar-src {:source "imdb_small.csv", :column "cast1"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}
+   {:stellar-type {:source "Person", :name "actedin"},
+    :stellar-src {:source "imdb_small.csv", :column "cast2"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}
+   {:stellar-type {:source "Person", :name "actedin"},
+    :stellar-src {:source "imdb_small.csv", :column "cast3"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}
+   {:stellar-type {:source "Person", :name "workedin"},
+    :stellar-src {:source "imdb_small.csv", :column "crew1"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}
+   {:stellar-type {:source "Person", :name "workedin"},
+    :stellar-src {:source "imdb_small.csv", :column "crew2"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}
+   {:stellar-type {:source "Person", :name "workedin"},
+    :stellar-src {:source "imdb_small.csv", :column "crew3"},
+    :stellar-dest{:source "imdb_small.csv", :column "id"}}] }}
