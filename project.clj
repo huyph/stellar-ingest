@@ -1,4 +1,4 @@
-(defproject au.csiro.data61.stellar/stellar-ingest "0.1.0"
+(defproject au.csiro.data61.stellar/stellar-ingest "0.1.1-SNAPSHOT"
     
   :description "Stellar data ingestion module."
   :url "http://data61.csiro.au/"
