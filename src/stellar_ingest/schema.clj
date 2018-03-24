@@ -293,6 +293,9 @@
         ;; Each  node map  is  used to  build  a  node and  append  it to  the
         ;; GraphCollectionBuilder.  Appending  has side  effects and  doall is
         ;; required.
+        ;;
+        ;; THIS IS NOT REQUIRED ANYMORE, edge construction can work with the the
+        ;; original IDs, which means we can spare the intermediate LUT.
         nid-lut (doall (map
                         (fn [v] (let [label (:label v)
                                       props (clj-map-to-properties (:props v))
@@ -567,6 +570,81 @@
   ;; function that take id  or a special property tag that  contains the id to
   ;; use).
 
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  ;; Load the schema in an either.
+  (def f "resources/examples/imdb_norm/imdb_norm_schema.json")
+  (def l "mygraph")
+  (def scm (either/try-either (load-schema f)))
+
+  ;; Add :schema-file and :label to the schema.
+  (def scm (cats/fmap #(if (map? %) (assoc % :schema-file f) identity) scm))
+  (def scm (cats/fmap #(if (map? %) (assoc % :label (str l)) identity) scm))
+
+  ;; Validate the schema. Adds :validated.
+  (def scm (cats/bind scm vtor/validate-schema))
+
+  ;; Convert schema to project.
+  (def pro (cats/bind scm schema-to-project))
+
+  ;; Using the project and the CSVs create maps that represent nodes and edges.
+  (def maps (cats/fmap create-maps-from-project pro))
+
+  ;; Extract node and link maps. And the label.
+  (def nodes (cats/fmap :nodes maps))
+  (def links (cats/fmap :links maps))
+  (def lab (cats/fmap (comp :label second first) pro))
+  
+  ;;
+  (def g ((cats/lift-m populate-graph) nodes links lab))
+
+
+  
+  
+
+;;   (defn- ingest-project [pro]
+;;   (try
+;;     (let [maps (cats/fmap create-maps-from-project pro)
+;;           ns (cats/fmap :nodes maps)
+;;           ls (cats/fmap :links maps)
+;;           lab (cats/fmap (comp :label second first) pro)]
+;;       ;; ((cats/lift-m populate-graph) ns ls lab)
+;;       maps
+;;       )
+;;     (catch Exception e (either/left (.getMessage e)))))
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ;; Ingest a graph starting  from a schema. The schema is  passed as Clojure map,
+;; ;; wrapped in an either. If passed as second argument, add :label to the schema.
+;; ;; The schema is validated before proceeding.
+;; (defn- ingest-schema
+;;   ([s]
+;;    (let [scm (cats/bind s vtor/validate-schema)
+;;          pro (cats/bind scm schema-to-project)]
+;;      (ingest-project pro)))
+;;   ([s l]
+;;    (let [scm (cats/fmap #(if (map? %) (assoc % :label (str l)) identity) s)]
+;;      (ingest-schema scm))))
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ;; Ingest a  graph starting from  a schema file. The  file is passed  as String,
+;; ;; containing the path.  Add :schema-file to the schema and, if passed as second
+;; ;; argument, also :label.
+;; (defn- ingest-schema-file
+;;   ([f]
+;;    (let [scm (either/try-either (load-schema f))
+;;          scm (cats/fmap #(if (map? %) (assoc % :schema-file f) identity) scm)]
+;;      (ingest-schema scm)))
+;;   ([f l]
+;;    (let [scm (either/try-either (load-schema f))
+;;          scm (cats/fmap #(if (map? %) (assoc % :schema-file f) identity) scm)
+;;          scm (cats/fmap #(if (map? %) (assoc % :label (str l)) identity) scm)]
+;;      (ingest-schema scm))))
+
+
+
+  
   ) ;; End comment
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

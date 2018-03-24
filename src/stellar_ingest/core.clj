@@ -37,6 +37,46 @@
 ;; Java built-in exceptions:
 ;; https://www.tutorialspoint.com/java/java_builtin_exceptions.htm
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Lazily process a file.
+
+;; (defn doseq-on-file
+;;   ""
+;;   [file    ;; File that can be turned into a Java reader
+;;    seq-fn  ;; Function that turns reader into a lazy sequence
+;;    map-fn  ;; Function (with no side effects) to map on seq 
+;;    out-fn] ;; Function (with side effects) to map on seq
+;;   (with-open [rdr (clojure.java.io/reader file)]
+;;     (doseq [ch (seq-fn rdr)]
+;;       (out-fn
+;;        (map-fn ch)))))
+
+(defn doseq-on-file
+  "Process file reading it as sequence element."
+  ([file]
+   (doseq-on-file file line-seq))
+  ([file seq-fn]
+   (doseq-on-file file seq-fn identity))
+  ([file seq-fn process-fn]
+   (doseq-on-file file seq-fn process-fn println))
+  ([file seq-fn process-fn output-fn]
+   (with-open [rdr (clojure.java.io/reader file)]
+     (doseq [elem (seq-fn rdr)]
+       (output-fn
+         (process-fn elem))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Can we bake file closing inside the seq generator.
+
+(defn my-line-seq
+  "Returns the lines of text from rdr as a lazy sequence of strings.
+  rdr must implement java.io.BufferedReader."
+  {:added "1.0"
+   :static true}
+  [^java.io.BufferedReader rdr]
+  (when-let [line (.readLine rdr)]
+    (cons line (lazy-seq (line-seq rdr)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Read/parse CSV.
 
@@ -51,92 +91,92 @@
       (csv/read-csv reader)))))
 
 
-(def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
-(def s "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/small.csv")
+;; (def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
+;; (def s "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/small.csv")
 
-(def f (with-open [reader (io/reader "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")]
-         (csv/read-csv reader)))
+;; (def f (with-open [reader (io/reader "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")]
+;;          (csv/read-csv reader)))
 
-(def ls (csv/read-csv (io/reader f)))
-(def lss (csv/read-csv (io/reader s)))
+;; (def ls (csv/read-csv (io/reader f)))
+;; (def lss (csv/read-csv (io/reader s)))
 
-(take 3 lss) (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"] ["1" "M" "0.9" "30" "0"] ["2" "F" "1" "20" "0"])
+;; (take 3 lss) (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"] ["1" "M" "0.9" "30" "0"] ["2" "F" "1" "20" "0"])
 
-(take 3 ls) (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"] ["1" "M" "0.9" "30" "0"] ["2" "F" "1" "20" "0"])
-(take 10 ls) 
+;; (take 3 ls) (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"] ["1" "M" "0.9" "30" "0"] ["2" "F" "1" "20" "0"])
+;; (take 10 ls) 
 
-(count ls) 5607448 ;; This brought me to 5GB, but I do have the seq head...
+;; (count ls) 5607448 ;; This brought me to 5GB, but I do have the seq head...
 
-;; This seems to be the only way to avoid memory usage...
-;; (- 2735 2667) 68 --> Footprint 60MB, must be the chunck it load in memory to work with...
-;; This small footprint may become significant when the ingestor runs as service!
-;; And of course, we need it to close the file...
-;; It would seem that the huge memory consumption is from Clojure data structures bookkeepign,
-;; which sounds weird... Maybe the REPL keeps track of stuff....
+;; ;; This seems to be the only way to avoid memory usage...
+;; ;; (- 2735 2667) 68 --> Footprint 60MB, must be the chunck it load in memory to work with...
+;; ;; This small footprint may become significant when the ingestor runs as service!
+;; ;; And of course, we need it to close the file...
+;; ;; It would seem that the huge memory consumption is from Clojure data structures bookkeepign,
+;; ;; which sounds weird... Maybe the REPL keeps track of stuff....
 
-(count (csv/read-csv (io/reader f)))
-(count (csv/read-csv (io/reader s)))
-;; So it's about being functional. I must compose...
+;; (count (csv/read-csv (io/reader f)))
+;; (count (csv/read-csv (io/reader s)))
+;; ;; So it's about being functional. I must compose...
 
-;; Slurping is actually a good solution, since we know max file size...
-(def fc (slurp f))
-;; This closes the reader... but then how is it lazy???
-(def fcs (line-seq (io/reader f)))
-(take 10 fcs)
+;; ;; Slurping is actually a good solution, since we know max file size...
+;; (def fc (slurp f))
+;; ;; This closes the reader... but then how is it lazy???
+;; (def fcs (line-seq (io/reader f)))
+;; (take 10 fcs)
 
-;; Try and convert the slurped string into what read-csv would do.
-;; Where does the memory foot print come from?
-(split-with #(re-matches #"\n" %) fc)
+;; ;; Try and convert the slurped string into what read-csv would do.
+;; ;; Where does the memory foot print come from?
+;; (split-with #(re-matches #"\n" %) fc)
 
-(def csvs (with-open [reader (io/reader s)]
-            (doall
-             (csv/read-csv reader))))
+;; (def csvs (with-open [reader (io/reader s)]
+;;             (doall
+;;              (csv/read-csv reader))))
 
-(def csvf (with-open [reader (io/reader f)]
-            (doall
-             (csv/read-csv reader))))
+;; (def csvf (with-open [reader (io/reader f)]
+;;             (doall
+;;              (csv/read-csv reader))))
 
-;; 1.4->5.8: with doall read-csv... Madness!!!
+;; ;; 1.4->5.8: with doall read-csv... Madness!!!
 
-(take 3 csvf)
-(["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"]
- ["1" "M" "0.9" "30" "0"]
- ["2" "F" "1" "20" "0"])
+;; (take 3 csvf)
+;; (["userId" "sex" "timePassedValidation" "ageGroup" "isSpammer"]
+;;  ["1" "M" "0.9" "30" "0"]
+;;  ["2" "F" "1" "20" "0"])
 
-(def mylist (doall (repeat 5000000 ["1" "M" "0.9" "30" "0"])))
+;; (def mylist (doall (repeat 5000000 ["1" "M" "0.9" "30" "0"])))
 
-(type mylist)
+;; (type mylist)
 
-;; 1500
+;; ;; 1500
 
-;; (line-seq (BufferedReader. (StringReader. "1\n2\n\n3")))
-(def scsv (csv/read-csv fc)) ;; With slurp and this, I get the lazy seq.
-(def scsv (doall (csv/read-csv fc))) ;; So, doall read-csv is the deadly combo.
+;; ;; (line-seq (BufferedReader. (StringReader. "1\n2\n\n3")))
+;; (def scsv (csv/read-csv fc)) ;; With slurp and this, I get the lazy seq.
+;; (def scsv (doall (csv/read-csv fc))) ;; So, doall read-csv is the deadly combo.
 
-;; doseq is like doall, but doens't keep the sequence head (which doall returns)
+;; ;; doseq is like doall, but doens't keep the sequence head (which doall returns)
 
-;; Final test: it is the Clojure data structures that add overhead!
-;; 1476
-(def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
-;; 1477
-(def fc (slurp f))
-;; 1622
-(def myvec
-  (into []
-        (map #(into [] (clojure.string/split % #","))
-             (clojure.string/split-lines fc))))
-;; (- 5537 1476) 4061 --> 4GB to read a 120MB CSV file!!!
+;; ;; Final test: it is the Clojure data structures that add overhead!
+;; ;; 1476
+;; (def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
+;; ;; 1477
+;; (def fc (slurp f))
+;; ;; 1622
+;; (def myvec
+;;   (into []
+;;         (map #(into [] (clojure.string/split % #","))
+;;              (clojure.string/split-lines fc))))
+;; ;; (- 5537 1476) 4061 --> 4GB to read a 120MB CSV file!!!
 
-;; Using just 'repeat' on a sample datum doesn't show any change,
-;; bacause it's reusing stuff.
-(defn bvec [x] (vector (str x)
-                       (str (reduce str (take 1 (repeatedly #(rand-nth "MF")))))
-                       (str "0." (reduce str (take 4 (repeatedly #(rand-nth "0123456789")))))
-                       (reduce str (take 2 (repeatedly #(rand-nth "0123456789"))))
-                       (str (reduce str (take 1 (repeatedly #(rand-nth "01")))))))
-;; 1592
-(def mylist (into [] (map bvec (range 1 5607448))))
-;; (- 4520 1592) 2928 --> 3GB just to build the data structure.
+;; ;; Using just 'repeat' on a sample datum doesn't show any change,
+;; ;; bacause it's reusing stuff.
+;; (defn bvec [x] (vector (str x)
+;;                        (str (reduce str (take 1 (repeatedly #(rand-nth "MF")))))
+;;                        (str "0." (reduce str (take 4 (repeatedly #(rand-nth "0123456789")))))
+;;                        (reduce str (take 2 (repeatedly #(rand-nth "0123456789"))))
+;;                        (str (reduce str (take 1 (repeatedly #(rand-nth "01")))))))
+;; ;; 1592
+;; (def mylist (into [] (map bvec (range 1 5607448))))
+;; ;; (- 4520 1592) 2928 --> 3GB just to build the data structure.
 
 
 ;; This doesn't seem to change memory consumption! It reuses stuff!
