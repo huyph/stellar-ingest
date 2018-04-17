@@ -57,10 +57,13 @@
    {:key-fn (fn [k] (clojure.string/replace (name k) #"^stellar-" "@"))
     :pretty true}))
 
-(defn load-csv
-  ""
-  [file]
-  (deref (cats/fmap core/csv-data->maps (core/read-csv-data file))))
+;; HERE: redefine in terms of lazy file sequence.
+;; (defn load-csv
+;;   ""
+;;   [file]
+;;   (deref (cats/fmap core/csv-data->maps (core/read-csv-data file))))
+(defn load-csv "" [file]
+  (core/csv-data->maps (core/file-line-parse-seq file (comp first csv/read-csv))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Given a schema map  and a source return a copy of  the schema containing only
@@ -278,52 +281,47 @@
   code and the  stellar.util java library.  Maps representing  nodes and links
   are  converted  to  the  corresponding   util  object  and  collected  in  a
   GraphCollectionBuilder object, from which the distributed graph is created."
+  ;; HERE: vs and es must arrive here as lazy seqs. They should not be used in
+  ;; let-forms to avoid holding on to their heads.
   [vs  ;; Maps of vertices
    es  ;; Maps of edges
    gl] ;; Graph label
-  (let [es (zipmap (range 0 (count es)) es)
-        ;;
+  (let [;; Select graph memory backend
         grbef (new LocalBackEndFactory)
-        ;;
-        graph (.createGraph grbef gl (.getMap (Properties/create)))
-
-        ;; A  lookup table  of node  IDs is  created, to  track correspondence
-        ;; between  stellar.util  node  identifiers and  the  original  source
-        ;; identifiers.
-        ;; Each  node map  is  used to  build  a  node and  append  it to  the
-        ;; GraphCollectionBuilder.  Appending  has side  effects and  doall is
-        ;; required.
-        ;;
-        ;; THIS IS NOT REQUIRED ANYMORE, edge construction can work with the the
-        ;; original IDs, which means we can spare the intermediate LUT.
-        nid-lut (doall (map
-                        (fn [v] (let [label (:label v)
-                                      props (clj-map-to-properties (:props v))
-                                      oid (str label (:__id (:props v)))]
-                                  {:orig (str label oid)
-                                   :graph (try
-                                            (.addVertex graph oid label props)
-                                            (catch Exception e (str "caught exception: " (.getMessage e)))
-                                            (finally nil))}))
-                        vs))]
-    ;; After all nodes are created and appended, do the same with links.
-    (doall (map
-            (fn [ed] (let [e (val ed)
-                           label (:label e)
-                           src-orig (str (:src-label e) (:src-val e))
-                           dst-orig (str (:dst-label e) (:dst-val e))
-                           edgeid (str (key ed))]
-                      {:label label :src src-orig :dst dst-orig :status
-                       (try
-                         (.addEdge graph edgeid src-orig dst-orig label (.getMap (Properties/create)))
-                         (catch Exception e)
-                         (finally nil)
-                         )}))
-            es))
-    ;; Return the  Graph. If this is  commented out, the edge  lookup table is
-    ;; returned, useful for debugging edge construction.
-    graph
-    ))
+        ;; Create and empty graph, that will be populated element-wise.
+        graph (.createGraph grbef gl (.getMap (Properties/create)))]
+    ;; Process all nodes.
+    (do
+      (doall (map
+              (fn [v] (let [label (:label v)
+                            props (clj-map-to-properties (:props v))
+                            oid (str label (:__id (:props v)))]
+                        {:orig (str label oid)
+                         :graph (try
+                                  (.addVertex graph oid label props)
+                                  (catch Exception e (str "caught exception: " (.getMessage e)))
+                                  (finally nil))}))
+              vs))
+      ;; After all nodes are created and appended, do the same with links.
+      (doall (map
+              (fn [ed] (let [e (val ed)
+                             label (:label e)
+                             src-orig (str (:src-label e) (:src-val e))
+                             dst-orig (str (:dst-label e) (:dst-val e))
+                             edgeid (str (key ed))]
+                         {:label label :src src-orig :dst dst-orig :status
+                          (try
+                            (.addEdge graph edgeid src-orig dst-orig label (.getMap (Properties/create)))
+                            (catch Exception e (str "caught exception: " (.getMessage e)))
+                            (finally nil)
+                            )}))
+              ;; Add sequential numeric IDs to make the Utils happy.
+              ;; range with no parms does [0..] and zipmap takes as many as shorter seq.
+              (zipmap (range) es)))
+      ;; Return the  Graph. If this is  commented out, the edge  lookup table is
+      ;; returned, useful for debugging edge construction.
+      graph
+      )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -360,13 +358,25 @@
 ;; file, from which  a project object is constructed. This  contains a list of
 ;; the source files (full path) each with the corresponding subschema.
 
+;; HERE: 3 problems: 1) load-csv should  create a lazy sequence, which is likely
+;; not. 2) Also,  inserting into vector makes the collection  non-lazy.  3) with
+;; the let I'm keeping the head of my sequences...
+;;
+;; Solution to 1: here I have the file paths, so this is the entry point where I
+;; can create a buffered reader which I  leave open and close it only when done.
+;; I'm for  sure coming  back here (or  so should be)  because I'm  dealing with
+;; errors using either. To parse CSVs etc. I'm composing the necessary functions
+;; somewhere else and using them here.
+;;
+;; Solution to 2/3, simple refactor to avoid the problems.
 (defn create-maps-from-project
   [pro]
   (let [;; Build node maps from all sources.
         ns (map #(create-node-maps (second %) (load-csv (first %))) pro)
         ;; Build link maps from all sources.
         ls (map #(create-link-maps (second %) (load-csv (first %))) pro)]
-    {:nodes (into [] (flatten ns)) :links (into [] (flatten ls))}))
+    {:nodes (flatten ns)
+     :links (flatten ls)}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Ingest data and  create a graph from a project  definition. The input project
@@ -376,6 +386,8 @@
 ;; TODO: improve implementation to full  exploit either. Currently the functions
 ;; called here will always return a  right, unless an exception occurs, which is
 ;; captured by the outer try-catch block.
+;;
+;; HERE: do not use let to hold intermediate results, i.e. sequence heads!
 (defn- ingest-project [pro]
   (try
     (let [maps (cats/fmap create-maps-from-project pro)
@@ -525,9 +537,12 @@
 (comment
 
   (def scm-file (io/resource "examples/imdb_norm/imdb_norm_schema.json"))
-  (def scm-file (.getPath scm-file))
+  (def scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json")
+  (def scm-file "/home/amm00b/CSIRO/WORK/Dev/Stellar/risk_net_example/ingest_schema.json")
+  (def scm-file (.getPath scm-file)) 
   ;; (def scm (load-schema scm-file))
   ;; (def scm (assoc scm :label "gtest"))
+  ;; (def scm (assoc scm :schema-file scm-file))
   ;; (def scm (assoc scm :schema-file (.getPath scm-file)))
   ;; (def scm (vtor/validate-schema scm))
   ;; scm
@@ -540,9 +555,40 @@
 
   (def graph (ingest-project pro))
   ;; graph
+  ;; (type (:nodes (deref graph)))
 
-  (def maps (create-maps-from-project pro))
+  ;; For some odd reason calling the single functions gives me lazy-seq
+  ;; but using create-maps-from-project not...
+  ;; STOOPID ME! I was looking at the whole maps type, instead of the sequences it contains!
+  ;; (def csvf (load-csv "/home/amm00b/CSIRO/WORK/Dev/Stellar/stellar-ingest-dev/resources/examples/imdb_norm/films.csv"))
+  ;; (type csvf) clojure.lang.LazySeq
+  ;; (def nmaps (flatten (map #(create-node-maps (second %) (load-csv (first %))) (deref pro))))
+  ;; (def lmaps (flatten (map #(create-link-maps (second %) (load-csv (first %))) (deref pro))))
+  ;; (type nmaps)  clojure.lang.LazySeq
+  ;; (type lmaps)  clojure.lang.LazySeq
+  
+  (def maps (create-maps-from-project (deref pro)))
   maps
+  (type (:nodes maps))
+
+  ;; Lazily write out the maps.
+  (time (with-open [w (clojure.java.io/writer  "/tmp/nodes.edn")]
+          (doseq [n (:nodes maps)]
+            (.write w (str n "\n")))))
+  ;; "Elapsed time: 263535.48063 msecs" --> 4' 20"
+  ;; 20 secs of AWK.
+  
+  (time (with-open [w (clojure.java.io/writer  "/tmp/links.edn")]
+          (doseq [l (:links maps)]
+            (.write w (str l "\n")))))
+  ;; 
+
+  (time (count (:nodes maps)))
+  ;;
+  
+  (time (count (:links maps)))
+  ;;
+  
   (def graph (populate-graph (:nodes maps) (:links maps) "testg"))
 
   ;; graph.toGraph().toCollection().write().json("out.epgm");

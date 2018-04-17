@@ -75,7 +75,120 @@
    :static true}
   [^java.io.BufferedReader rdr]
   (when-let [line (.readLine rdr)]
-    (cons line (lazy-seq (line-seq rdr)))))
+    (cons line (lazy-seq (my-line-seq rdr)))))
+
+
+
+;; (defn file-line-seq "" [f]
+;;   (when-let [line (.readLine rdr)]
+;;     (cons line (lazy-seq (line-seq rdr)))))
+
+
+
+
+;; br = new BufferedReader(new FileReader(FILENAME));
+;; 			fr = new FileReader(FILENAME);
+;; 			br = new BufferedReader(fr);
+
+;; 			String sCurrentLine;
+
+;; 			while ((sCurrentLine = br.readLine()) != null) {
+;; 				System.out.println(sCurrentLine);
+;; 			}
+
+
+
+;; (def fr (java.io.FileReader. "/tmp/test.csv"))
+;; (def br (java.io.BufferedReader. fr))
+;; (.readLine br)
+
+;; ;; .close br and fr...
+
+
+;; /tmp/nums.txt
+
+
+;; ;;;;;; 2 examples (doseq and for) that work lazily
+;; (def fr (java.io.FileReader. "/tmp/nums.txt"))
+;; (def br (java.io.BufferedReader. fr))
+;; (def ls (line-seq br))
+;; (.readLine br)
+
+;; ;; Creating line-seq directly here: doesn't hold head, so no mem comsumption.
+;; ;; Seems pretty slow executing though...
+;; (def fr (java.io.FileReader. "/tmp/nums.txt"))
+;; (def br (java.io.BufferedReader. fr))
+
+;; (doseq [l (line-seq br)] (count l))
+;; ;; 1725 -> 1683 !!!
+
+;; ;; Also this: 
+;; (def ls (for [l (line-seq br)] (count l)))
+;; (def res (take 100000000 ls))
+
+;; ;; This fills the required memory and then goes on processing forever...
+;; ;; What's going on?
+;; (doall ls)
+
+;; (.close br)
+;; (.close fr)
+
+
+;; ;;;;;;
+;; ;; This closes the stream too early... ??? Must use doall or similar?
+;; (with-open [r (clojure.java.io/reader "/tmp/nums.txt")]
+;;   (->> (line-seq r)
+;;        (map count)))
+
+;;;;;;
+
+
+
+;; ;; This seems to work and it closes the file...
+;; (defn lazy-read-csv [csv-file]
+;;   (let [in-file (io/reader csv-file)
+;;         csv-seq (csv/read-csv in-file)
+;;         lazy (fn lazy [wrapped]
+;;                (lazy-seq
+;;                  (if-let [s (seq wrapped)]
+;;                    (cons (first s) (lazy (rest s)))
+;;                    (.close in-file))))]
+;;     (lazy csv-seq)))
+
+;; (def mydata (lazy-read-csv "/tmp/nums.txt"))
+
+;; (doseq [l mydata] (count l))
+
+;; Implement it in term of buffered reader...
+;; OK, the io/reader by default return a buffered reader.
+;; But I wonder if not using readline changes something...
+
+;; ;; Can concatenate the lazy sequences from files, without need to flatten,
+;; ;; and get what I need.
+;; stellar-ingest.schema> (type (concat (lazy-seq [1 2 3]) (lazy-seq [4 5 6])))
+;; clojure.lang.LazySeq
+
+
+(defn my-line-seq
+  "Returns the lines of text from rdr as a lazy sequence of strings.
+  rdr must implement java.io.BufferedReader."
+  {:added "1.0"
+   :static true}
+  [^java.io.BufferedReader rdr]
+  (when-let [line (.readLine rdr)]
+    (cons line (lazy-seq (my-line-seq rdr)))))
+
+
+
+;;
+(defn file-line-seq [in-file]
+  (let [file-rdr (io/reader in-file)
+        lazy (fn lazy [rdr]
+               (lazy-seq
+                 (if-let [line (.readLine rdr)]
+                   (cons line (lazy rdr))
+                   (.close rdr))))]
+    (lazy file-rdr)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Read/parse CSV.
@@ -89,6 +202,18 @@
      ;; ERROR: with doall here, the lazy sequence gets loaded in memory.
      (doall
       (csv/read-csv reader)))))
+
+;; Take a  file to be read  line-wise and a function  to apply to each  line and
+;; return a lazy  sequence of the results  from each line. The  file gets closed
+;; when the sequence is exausted.
+(defn file-line-parse-seq [in-file & line-fn]
+  (let [line-fn (if (fn? (first line-fn)) (first line-fn) identity)
+        file-rdr (io/reader in-file)
+        lazy (fn lazy [^java.io.BufferedReader rdr]
+               (if-let [line (.readLine rdr)]
+                 (cons (line-fn line) (lazy-seq (lazy rdr)))
+                 (.close rdr)))]
+    (lazy file-rdr)))
 
 
 ;; (def f "/home/amm00b/CSIRO/DATA/Spammer/Ingestor_Test/cusersdata.csv.full")
