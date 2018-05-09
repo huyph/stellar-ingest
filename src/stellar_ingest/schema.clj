@@ -33,7 +33,9 @@
             [cats.monad.either :as either]
             [cats.context :as ctx]
             ;; Cheshire JSON library
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            ;; Memory meter
+            [clj-memory-meter.core :as mm])
   (:import
    (sh.serene.stellarutils.entities Properties)
    (sh.serene.stellarutils.graph.api StellarBackEndFactory StellarGraph StellarGraphBuffer)
@@ -236,17 +238,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 
+;; The duplicate-removal bit likely kills lazyness...
 (defn create-node-maps
   "Applies  the  schema  to  the  whole  CVS  file  content,  generating  maps
   representing all nodes. Duplicate nodes are removed."
   [scm  ;; Schema
    dat] ;; CSV data
-  (->>
-   (for [l dat] (apply-all-node-mappings scm l))
-   flatten
-   (group-by :id)
-   (map (fn [x] (first (val x))))
-   (sort-by :id)))
+  ;; (->>
+  ;;  (for [l dat] (apply-all-node-mappings scm l))
+  ;;  flatten
+  ;;  (group-by :id)
+  ;;  (map (fn [x] (first (val x))))
+  ;;  (sort-by :id))
+  (apply concat (for [l dat] (apply-all-node-mappings scm l)))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -256,9 +261,11 @@
   representing all links."
   [scm  ;; Schema
    dat] ;; CSV data
-  (->>
-   (for [l dat] (apply-all-link-mappings scm l))
-   flatten))
+  ;; (->>
+  ;;  (for [l dat] (apply-all-link-mappings scm l))
+  ;;  flatten)
+  (apply concat (for [l dat] (apply-all-link-mappings scm l)))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -369,14 +376,33 @@
 ;; somewhere else and using them here.
 ;;
 ;; Solution to 2/3, simple refactor to avoid the problems.
+
+;; After discussion with Alex: the map may be holding on to the sequence head.
+;; Return directly one sequence restores laziness... I can return the map but
+;; containing functions...
 (defn create-maps-from-project
   [pro]
-  (let [;; Build node maps from all sources.
-        ns (map #(create-node-maps (second %) (load-csv (first %))) pro)
-        ;; Build link maps from all sources.
-        ls (map #(create-link-maps (second %) (load-csv (first %))) pro)]
-    {:nodes (flatten ns)
-     :links (flatten ls)}))
+  ;; {:nodes (flatten
+  ;;          (map #(create-node-maps (second %) (load-csv (first %))) pro))
+  ;;  :links (flatten
+  ;;          (map #(create-link-maps (second %) (load-csv (first %))) pro))}
+
+  ;; {:nodes (apply concat
+  ;;          (map #(create-node-maps (second %) (load-csv (first %))) pro))
+  ;;  :links (apply concat
+  ;;          (map #(create-link-maps (second %) (load-csv (first %))) pro))}
+
+  ;; {:nodes
+  ;;  (fn [] (flatten (map #(create-node-maps (second %) (load-csv (first %))) pro)))}
+
+  ;; {:nodes
+  ;;  (flatten (map #(create-node-maps (second %) (load-csv (first %))) pro))}
+
+  ;; (flatten (map #(create-node-maps (second %) (load-csv (first %))) pro))
+
+  (apply concat
+         (map #(create-link-maps (second %) (load-csv (first %))) pro))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Ingest data and  create a graph from a project  definition. The input project
@@ -509,22 +535,23 @@
 ;; schema mappings, sources can be addressed with valid shorthand (i.e. trailing
 ;; portion of path sufficient to uniquely identify).
 
-(defn -main [& args]
-  (if (not= (count args) 3)
-    (do (println "Required parameters: schema_file output_dir graph_label")
-        (utils/exit 1))
-    (let [scm-file (first args)
-          out-file (second args)
-          glabel (nth args 2)
-          graph (ingest scm-file {:label glabel})]
-      (if (either/right? graph)
-        ;; Function write-graph-to-json  creates intermediate dirs  and consumes
-        ;; all I/O exceptions. It returns status as boolean.
-        (if (write-graph-to-json (deref graph) out-file)
-          (println (str "Saved EPGM graph to " out-file))
-          (do (println (str "I/O error saving graph to " out-file))
-              (utils/exit 1)))
-        (do (println (str "Error: " (deref graph))) (utils/exit 1))))))
+;; COMMENTED FOR TEMP MAIN...
+;; (defn -main [& args]
+;;   (if (not= (count args) 3)
+;;     (do (println "Required parameters: schema_file output_dir graph_label")
+;;         (utils/exit 1))
+;;     (let [scm-file (first args)
+;;           out-file (second args)
+;;           glabel (nth args 2)
+;;           graph (ingest scm-file {:label glabel})]
+;;       (if (either/right? graph)
+;;         ;; Function write-graph-to-json  creates intermediate dirs  and consumes
+;;         ;; all I/O exceptions. It returns status as boolean.
+;;         (if (write-graph-to-json (deref graph) out-file)
+;;           (println (str "Saved EPGM graph to " out-file))
+;;           (do (println (str "I/O error saving graph to " out-file))
+;;               (utils/exit 1)))
+;;         (do (println (str "Error: " (deref graph))) (utils/exit 1))))))
 
 ;; (write-graph-to-gdf graph (str "/tmp/" glabel ".gdf"))
 ;; (write-graph-to-json graph (str "/tmp/" glabel ".json"))
@@ -533,13 +560,154 @@
 ;; Scratch
 ;;
 ;; TODO: Update to new unified data flow.
+;;
+;; sudo apt-get install java-8-openjdk
+
+;; export CLJEC2=13.210.127.141
+;; ssh -i ~/Keys/filippo-dev-machines.pem ubuntu@$CLJEC2
+;; lein uberjar
+;; scp -i ~/Keys/filippo-dev-machines.pem ~/CSIRO/WORK/Dev/Stellar/stellar-ingest-dev/target/uberjar/stellar-ingest-0.1.1-SNAPSHOT-standalone.jar ubuntu@$CLJEC2:~/
+;; date; java -cp ~/CSIRO/WORK/Dev/Stellar/stellar-ingest-dev/target/uberjar/stellar-ingest-0.1.1-SNAPSHOT-standalone.jar stellar_ingest.schema; date
+;; date; java -cp ~/stellar-ingest-0.1.1-SNAPSHOT-standalone.jar stellar_ingest.schema; date
+;; top -b -p $(ps aux|grep "java -cp"|grep -v grep|sed 's/\t/ /g;s/  */ /g'|cut -d" " -f2) 2>&1|tee mem.log
+;; top -Hb -p $(ps aux|grep "java -cp"|grep -v grep|sed 's/\t/ /g;s/  */ /g'|cut -d" " -f2) 2>&1|tee mem.log
+(defn -main [& args]
+  (println "Starting ingest...")
+  (let [;;scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
+        scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
+        scm (load-schema scm-file)
+        scm (assoc scm :label "gtest")
+        scm (assoc scm :schema-file scm-file)
+        scm (vtor/validate-schema scm)
+        pro (cats/bind scm schema-to-project)
+
+        ;; mps (create-maps-from-project (deref pro))
+
+        ;; Partition sequences may be slightly shorter (max 99 elements shorter).
+        smallseq (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))
+        psmallseq (partition 100 smallseq)
+        largeseq (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))
+        plargeseq (partition 100 largeseq)        
+        ]
+    (println "Starting operation...")
+    (println (str "Results: "
+
+                  ;; OK, this seems to consume 1.6GB for a 2.8GB file...
+                  ;; (count (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv"))
+
+                  ;; OK, this consumes 1GB for a 2.8GB file...
+                  ;; (doseq [l (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv")] (count l))
+
+                  ;; OK, this consumes 1.6GB for a 2.8GB file...
+                  ;; (doseq [l (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv")] {:val (clojure.string/upper-case l) :len (str (count l) " bytes")})
+
+                  ;; Adding CSV parsing (read-csv str) in doseq.
+                  ;; OK, this consumes 1.6GB for a 2.8GB file...
+                  ;; (doseq [l (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv")] ((comp first csv/read-csv) l))
+
+                  ;; Adding CSV parsing (read-csv str) in sequence.
+                  ;; OK, consumes 1GB for 2.8GB file.
+                  ;; Going through 200million lines of 2 fields in memory took 4 minutes
+                  ;; (doseq [l (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))] (count l))
+
+                  ;; Adding printing, to make sure 
+                  ;; OK, consumes 600MB for 2.8GB file.
+                  ;; 200million lines of 2 fields, writing to disk, took 16 minutes
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+
+                  ;; Same as previous with smaller file: 4million 5-field lines, 310MB
+                  ;; OK, 240MB, 1 minute
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+
+                  ;; Same as previous 2, but holding sequence in let.
+                  ;; Small OK: 240MB, 1 minute
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l smallseq]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+                  ;; Large OK: 600MB, 16 minutes
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l largeseq]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+
+                  ;; Again: parsing/writing with small sequence.
+                  ;; Adding flatten, even though the sequence is already flat.
+                  ;; May be the culprit: https://stackoverflow.com/questions/12626401/clojure-flatten-and-laziness
+                  ;; Definitely something going on: 1GB RAM (4x increase)
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l (flatten smallseq)]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+                  ;; Same as above, but with non-flat sequence. Also 1 GB RAM.
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l (flatten psmallseq)]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+
+                  ;; For the above (with non-flat seq), try alternatives to flatten.
+                  ;; 1) apply concat: YES, we're back at 240MB.
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [l (apply concat psmallseq)]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+                  ;; 2) nested doseq: loop on subsequences and on their elements.
+                  ;; YES, also good (actually slightly better...)
+                  ;; (with-open [wrtr (io/writer "/tmp/test.txt")]
+                  ;;   (doseq [s psmallseq]
+                  ;;     (doseq [l s]
+                  ;;       (.write wrtr (str l " = " (count l) "\n")))))
+
+
+                  
+
+                  
+                  ;; Time to apply all these changes to the original program...
+                  ;; 2.5 mins on 500GB, then 3.4 GB until end 15 min.
+                  ;;
+                  ;; Still bad: 3.4 GB for a 310MB file!!!
+                  (with-open [wrtr (io/writer "/tmp/test.txt")]
+                    (doseq [l (create-maps-from-project (deref pro))]
+                      (.write wrtr (str l "\n"))))
+                  ;;
+                  ;; create-node/link-maps both call flatten...
+                  ;; also, is for ok in those functions???
+                  ;; Why??? 2 minutes at 500MB, then explodes!!!
+                  
+                  ;; DEBUG: saved the output in:
+                  ;; /home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.maps
+                  ;; Can load it back to Clojure as EDN and check RAM occupation.
+                  ;;
+                  ;; This alone takes like 15 minutes... reported size: can't compute!
+                  ;; (def myedn
+                  ;;   (with-open [r (io/reader "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/users.maps")]
+                  ;;     (clojure.edn/read (java.io.PushbackReader. r))))
+
+                  
+
+
+                  
+                  ;; (doseq [l (create-maps-from-project (deref pro))] (count l))
+                  ;; (doseq [l (:links (create-maps-from-project (deref pro)))] (count l))
+                  ;; (count (:links (create-maps-from-project (deref pro))))
+                  ;; (count (:nodes mps)) (count (:links mps))
+                  ))
+
+    ;; With no seq processing (but lazy seq creation) the program uses 165MB.
+    ;; (read-line)
+    ))
+;; TODO: to solve the ID check issue add HBase and append temp data to HBase.
+;; Then can generate EPGM from HBase temp data.
+;; Also, see if we can put graph in HBase and for graphsage shuffle the IDs.
+
 
 (comment
+
+  ;; top -p $(ps aux|grep java|grep hadoop|sed 's/\t/ /g; s/  */ /g'|cut -d" " -f2)
 
   (def scm-file (io/resource "examples/imdb_norm/imdb_norm_schema.json"))
   (def scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json")
   (def scm-file "/home/amm00b/CSIRO/WORK/Dev/Stellar/risk_net_example/ingest_schema.json")
-  (def scm-file (.getPath scm-file)) 
+  (def scm-file (.getPath scm-file))
   ;; (def scm (load-schema scm-file))
   ;; (def scm (assoc scm :label "gtest"))
   ;; (def scm (assoc scm :schema-file scm-file))
@@ -570,7 +738,9 @@
   (def maps (create-maps-from-project (deref pro)))
   maps
   (type (:nodes maps))
+  ;; YEP! Having the sequence in the map holds on to the sequence head...
 
+  
   ;; Lazily write out the maps.
   (time (with-open [w (clojure.java.io/writer  "/tmp/nodes.edn")]
           (doseq [n (:nodes maps)]
@@ -583,7 +753,7 @@
             (.write w (str l "\n")))))
   ;; 
 
-  (time (count (:nodes maps)))
+  (time (count (:nodes maps))) 
   ;;
   
   (time (count (:links maps)))
