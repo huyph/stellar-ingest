@@ -400,8 +400,10 @@
 
   ;; (flatten (map #(create-node-maps (second %) (load-csv (first %))) pro))
 
+  (println (str pro))
+  
   (apply concat
-         (map #(create-link-maps (second %) (load-csv (first %))) pro))
+         (map #(create-node-maps (second %) (load-csv (first %))) pro))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -584,11 +586,14 @@
         ;; mps (create-maps-from-project (deref pro))
 
         ;; Partition sequences may be slightly shorter (max 99 elements shorter).
-        smallseq (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))
+        smallseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))
         psmallseq (partition 100 smallseq)
-        largeseq (core/file-line-parse-seq "CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))
+        largeseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))
         plargeseq (partition 100 largeseq)        
         ]
+    (print "Press Enter to start operation...")
+    (flush)
+    (read-line)
     (println "Starting operation...")
     (println (str "Results: "
 
@@ -662,9 +667,17 @@
 
                   
                   ;; Time to apply all these changes to the original program...
-                  ;; 2.5 mins on 500GB, then 3.4 GB until end 15 min.
+                  ;; Working on node-maps only, with 310 MB file.
+                  ;; Runs for 2 minutes with 1 busy thread only, using some 5-600MB
+                  ;; and writing the output to file. After the 2 mins the output is
+                  ;; all written but program is still processing... goes on for several
+                  ;; minutes with some 8 busy threads... Then exists (frees the terminal).
                   ;;
-                  ;; Still bad: 3.4 GB for a 310MB file!!!
+                  ;; There's a doall in the props-to-map conversion...
+                  ;; More likely: the way I'm applying the mappings: am I idly going
+                  ;; through the 'links' file when creating nodes??? It still doesn't
+                  ;; explain the odd parallel behaviour... is any of the functions I'm
+                  ;; calling using pmap in the background???
                   (with-open [wrtr (io/writer "/tmp/test.txt")]
                     (doseq [l (create-maps-from-project (deref pro))]
                       (.write wrtr (str l "\n"))))
