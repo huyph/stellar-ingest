@@ -203,6 +203,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 
+;; FILIPPO: how is this working again? What's the threading macro for???  Right,
+;; so I'm just adding value to the original mapping... seems safe enough...
 (defn apply-link-mapping
   "Given a  single (preprocessed) link  mapping definition  and a line  of CSV
   data, build a map representing the link."
@@ -250,7 +252,17 @@
   ;;  (group-by :id)
   ;;  (map (fn [x] (first (val x))))
   ;;  (sort-by :id))
-  (apply concat (for [l dat] (apply-all-node-mappings scm l)))
+  (->>
+   (apply concat
+          ;; Checking  for empty  node mappings  ensures  the input  file is  not
+          ;; traversed in vain.
+          (if (empty? (-> scm :mapping :nodes))
+            (lazy-seq)
+            (for [l dat] (apply-all-node-mappings scm l))))
+   ;; (group-by :id)
+   ;; (map (fn [x] (first (val x))))
+   ;; (sort-by :id)
+   )
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -264,7 +276,12 @@
   ;; (->>
   ;;  (for [l dat] (apply-all-link-mappings scm l))
   ;;  flatten)
-  (apply concat (for [l dat] (apply-all-link-mappings scm l)))
+  
+  ;; Checking for empty link mappings ensures the input file is not traversed in
+  ;; vain.
+  (if (empty? (-> scm :mapping :links))
+    (lazy-seq)
+    (apply concat (for [l dat] (apply-all-link-mappings scm l))))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -387,10 +404,11 @@
   ;;  :links (flatten
   ;;          (map #(create-link-maps (second %) (load-csv (first %))) pro))}
 
-  ;; {:nodes (apply concat
-  ;;          (map #(create-node-maps (second %) (load-csv (first %))) pro))
-  ;;  :links (apply concat
-  ;;          (map #(create-link-maps (second %) (load-csv (first %))) pro))}
+  {:nodes (apply concat
+           (map #(create-node-maps (second %) (load-csv (first %))) pro))
+   :links (apply concat
+                 (map #(create-link-maps (second %) (load-csv (first %))) pro))
+   }
 
   ;; {:nodes
   ;;  (fn [] (flatten (map #(create-node-maps (second %) (load-csv (first %))) pro)))}
@@ -400,11 +418,23 @@
 
   ;; (flatten (map #(create-node-maps (second %) (load-csv (first %))) pro))
 
-  (println (str pro))
-  
-  (apply concat
-         (map #(create-node-maps (second %) (load-csv (first %))) pro))
+  ;; (println (str pro))
+  ;; (apply concat
+  ;;        (map #(create-node-maps (second %) (load-csv (first %))) pro))
   )
+
+
+
+(defn create-node-maps-from-project
+  [pro]
+  (apply concat
+         (map #(create-node-maps (second %) (load-csv (first %))) pro)))
+
+(defn create-link-maps-from-project
+  [pro]
+  (apply concat
+         (map #(create-link-maps (second %) (load-csv (first %))) pro)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Ingest data and  create a graph from a project  definition. The input project
@@ -576,6 +606,7 @@
 (defn -main [& args]
   (println "Starting ingest...")
   (let [;;scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
+        ;; scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal_mock/livejournal.json"
         scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
         scm (load-schema scm-file)
         scm (assoc scm :label "gtest")
@@ -583,13 +614,15 @@
         scm (vtor/validate-schema scm)
         pro (cats/bind scm schema-to-project)
 
-        ;; mps (create-maps-from-project (deref pro))
-
+        mps (create-maps-from-project (deref pro))
+        nmps (create-node-maps-from-project (deref pro))
+        lmps (create-link-maps-from-project (deref pro))
+        
         ;; Partition sequences may be slightly shorter (max 99 elements shorter).
-        smallseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))
-        psmallseq (partition 100 smallseq)
-        largeseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))
-        plargeseq (partition 100 largeseq)        
+        ;; smallseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))
+        ;; psmallseq (partition 100 smallseq)
+        ;; largeseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal_mock/friends.csv" (comp first csv/read-csv))
+        ;; plargeseq (partition 100 largeseq)        
         ]
     (print "Press Enter to start operation...")
     (flush)
@@ -678,9 +711,40 @@
                   ;; through the 'links' file when creating nodes??? It still doesn't
                   ;; explain the odd parallel behaviour... is any of the functions I'm
                   ;; calling using pmap in the background???
-                  (with-open [wrtr (io/writer "/tmp/test.txt")]
-                    (doseq [l (create-maps-from-project (deref pro))]
+
+                  ;; OK, so nodes  work. It's OK to have both  lazy sequences in
+                  ;; the "maps"  map. Memory  consumption happens only  with the
+                  ;; writing doseq and  only for the sequence  which is actually
+                  ;; used. It looks like it's really lazy: 170MB of base, become
+                  ;; ~500MB when loading, but it stays  the same for a 300MB and
+                  ;; a 1GB file.  Looks like the 240MB of going  through the CSV
+                  ;; lines + the same records being converted into maps.
+
+                  ;; With a single map, these work individually with 400MB...
+                  ;; but together 4GB!
+                  ;; (println "Writing out nodes.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                  ;;   (doseq [l (:nodes mps)]
+                  ;;     (.write wrtr (str l "\n"))))
+                  ;;
+                  ;; (println "Writing out links.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                  ;;   (doseq [l (:links mps)]
+                  ;;     (.write wrtr (str l "\n"))))
+
+
+                  ;;
+                  (println "Writing out nodes.")
+                  (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                    (doseq [l nmps]
                       (.write wrtr (str l "\n"))))
+
+                  (println "Writing out links.")
+                  (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                    (doseq [l lmps]
+                      (.write wrtr (str l "\n"))))
+
+                  
                   ;;
                   ;; create-node/link-maps both call flatten...
                   ;; also, is for ok in those functions???
