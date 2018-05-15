@@ -252,17 +252,17 @@
   ;;  (group-by :id)
   ;;  (map (fn [x] (first (val x))))
   ;;  (sort-by :id))
-  (->>
-   (apply concat
-          ;; Checking  for empty  node mappings  ensures  the input  file is  not
-          ;; traversed in vain.
-          (if (empty? (-> scm :mapping :nodes))
-            (lazy-seq)
-            (for [l dat] (apply-all-node-mappings scm l))))
+  ;; (->>
+  (apply concat
+         ;; Checking  for empty  node mappings  ensures  the input  file is  not
+         ;; traversed in vain.
+         (if (empty? (-> scm :mapping :nodes))
+           (lazy-seq)
+           (for [l dat] (apply-all-node-mappings scm l))))
    ;; (group-by :id)
    ;; (map (fn [x] (first (val x))))
    ;; (sort-by :id)
-   )
+   ;; )
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -279,9 +279,10 @@
   
   ;; Checking for empty link mappings ensures the input file is not traversed in
   ;; vain.
-  (if (empty? (-> scm :mapping :links))
-    (lazy-seq)
-    (apply concat (for [l dat] (apply-all-link-mappings scm l))))
+  (apply concat 
+         (if (empty? (-> scm :mapping :links))
+           (lazy-seq)
+           (for [l dat] (apply-all-link-mappings scm l))))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -316,18 +317,24 @@
         graph (.createGraph grbef gl (.getMap (Properties/create)))]
     ;; Process all nodes.
     (do
-      (doall (map
+      (dorun (map
               (fn [v] (let [label (:label v)
                             props (clj-map-to-properties (:props v))
                             oid (str label (:__id (:props v)))]
                         {:orig (str label oid)
                          :graph (try
                                   (.addVertex graph oid label props)
+                                  ;; (println (str "Node: " oid))
                                   (catch Exception e (str "caught exception: " (.getMessage e)))
                                   (finally nil))}))
-              vs))
-      ;; After all nodes are created and appended, do the same with links.
-      (doall (map
+              (vs)))
+
+      (print "Nodes created. Press Enter to start creating links...")
+      (flush)
+      (read-line)
+
+      ;; ;; After all nodes are created and appended, do the same with links.
+      (dorun (map
               (fn [ed] (let [e (val ed)
                              label (:label e)
                              src-orig (str (:src-label e) (:src-val e))
@@ -336,12 +343,14 @@
                          {:label label :src src-orig :dst dst-orig :status
                           (try
                             (.addEdge graph edgeid src-orig dst-orig label (.getMap (Properties/create)))
+                            ;; (println (str "Link: " edgeid))
                             (catch Exception e (str "caught exception: " (.getMessage e)))
                             (finally nil)
                             )}))
               ;; Add sequential numeric IDs to make the Utils happy.
               ;; range with no parms does [0..] and zipmap takes as many as shorter seq.
-              (zipmap (range) es)))
+              (zipmap (range) (es))))
+      
       ;; Return the  Graph. If this is  commented out, the edge  lookup table is
       ;; returned, useful for debugging edge construction.
       graph
@@ -369,12 +378,12 @@
   it to file in JSON (EPGM) format."
   [graph  ;; A StellarGraphBuffer object
    path]  ;; Output path
-  (clojure.pprint/pprint graph (clojure.java.io/writer path))
-  ;; (-> graph
-  ;;     .toGraph
-  ;;     .toCollection
-  ;;     .write
-  ;;     (.json path))
+  ;; (clojure.pprint/pprint graph (clojure.java.io/writer path))
+  (-> graph
+      .toGraph
+      .toCollection
+      .write
+      (.json path))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -404,10 +413,10 @@
   ;;  :links (flatten
   ;;          (map #(create-link-maps (second %) (load-csv (first %))) pro))}
 
-  {:nodes (apply concat
-           (map #(create-node-maps (second %) (load-csv (first %))) pro))
-   :links (apply concat
-                 (map #(create-link-maps (second %) (load-csv (first %))) pro))
+  {:nodes (fn [] (apply concat
+           (map #(create-node-maps (second %) (load-csv (first %))) pro)))
+   :links (fn [] (apply concat
+                 (map #(create-link-maps (second %) (load-csv (first %))) pro)))
    }
 
   ;; {:nodes
@@ -425,15 +434,27 @@
 
 
 
+;; (remove #(empty? (:nodes/links (:mapping (second %)))) x)
+
 (defn create-node-maps-from-project
   [pro]
-  (apply concat
-         (map #(create-node-maps (second %) (load-csv (first %))) pro)))
+  ;; (let [pro (remove #(empty? (:nodes (:mapping (second %)))) pro)]
+    (println "--------------------------------------------------")
+    (println "- create-node-maps-from-project")
+    (println (str (into [] pro)))
+    (fn []
+    (apply concat
+           (map #(create-node-maps (second %) (load-csv (first %))) pro))))
 
 (defn create-link-maps-from-project
   [pro]
-  (apply concat
-         (map #(create-link-maps (second %) (load-csv (first %))) pro)))
+  ;; (let [pro (remove #(empty? (:links (:mapping (second %)))) pro)]
+    (println "--------------------------------------------------")
+    (println "- create-link-maps-from-project")
+    (println (str (into [] pro)))
+    (fn []
+    (apply concat
+           (map #(create-link-maps (second %) (load-csv (first %))) pro))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -606,17 +627,21 @@
 (defn -main [& args]
   (println "Starting ingest...")
   (let [;;scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
-        ;; scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal_mock/livejournal.json"
-        scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
+        ;;scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal_mock/livejournal.json"
+        ;; scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
+        scm-file "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal_short.json"
+        lab "gtest"
         scm (load-schema scm-file)
-        scm (assoc scm :label "gtest")
+        scm (assoc scm :label lab)
         scm (assoc scm :schema-file scm-file)
         scm (vtor/validate-schema scm)
+
         pro (cats/bind scm schema-to-project)
+        ;; pro2 (cats/bind scm schema-to-project)
 
         mps (create-maps-from-project (deref pro))
-        nmps (create-node-maps-from-project (deref pro))
-        lmps (create-link-maps-from-project (deref pro))
+        ;; nmps (create-node-maps-from-project (deref pro))
+        ;; lmps (create-link-maps-from-project (deref pro))
         
         ;; Partition sequences may be slightly shorter (max 99 elements shorter).
         ;; smallseq (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))
@@ -732,17 +757,138 @@
                   ;;   (doseq [l (:links mps)]
                   ;;     (.write wrtr (str l "\n"))))
 
+                  ;; Also  these (separate  maps-creation  calls  for nodes  and
+                  ;; links) work  fine individually and, when  run together, the
+                  ;; first   performs  OK   and   the   second  starts   filling
+                  ;; memory. Same behavious, whichever is run first.
+                  ;; (println "Writing out links.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                  ;;   (doseq [l lmps] ;; lmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  ;; ;; 
+                  ;; (println "Writing out nodes.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                  ;;   (doseq [l nmps] ;; nmps
+                  ;;     (.write wrtr (str l "\n"))))
 
+                  ;; Sanity  check  for  the   two  above:  the  strange  memory
+                  ;; behaviour  has   nothing  to  do  with   reusing  the  same
+                  ;; file... although here it gets definitely exhausted...
+                  ;; (println "Run 1")
+                  ;; (with-open [wrtr (io/writer "/tmp/test1.txt")]
+                  ;;   (doseq [l (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+                  ;; (println "Run 2")
+                  ;; (with-open [wrtr (io/writer "/tmp/test2.txt")]
+                  ;;   (doseq [l (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv" (comp first csv/read-csv))]
+                  ;;     (.write wrtr (str l " = " (count l) "\n"))))
+
+                  ;; YES! Calling  the map functions directly  here works!  Goes
+                  ;; through both files keeping a steady 600MB or RAM usage.
+                  ;; Must try with larger files...
+                  ;; (println "Writing out nodes.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                  ;;   (doseq [l (create-node-maps-from-project (deref pro))] ;; nmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  ;; ;;
+                  ;; (println "Writing out links.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                  ;;   (doseq [l (create-link-maps-from-project (deref pro))] ;; lmps
+                  ;;     (.write wrtr (str l "\n"))))
+
+                  ;; NEXT STEPS:
+                  ;; - Be sure: run it with larger dataset.
+                  ;; YES,  I interrupted  it because  I was  getting bored,  but
+                  ;; using the  mock dataset it  processed all nodes  (14.5 Mil)
+                  ;; and 112 Mil links in 30 minutes.
+                  
+                  ;; - Make create-*-maps return lambdas,  should be possible to
+                  ;;   keep lambdas in let and have them called here.
+                  ;; YES, lambdas (closures) from separate calls to create-*-maps.
+                  ;; (println "Writing out nodes.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                  ;;   (doseq [l (nmps)] ;; nmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  ;; (println "Writing out links.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                  ;;   (doseq [l (lmps)] ;; lmps
+                  ;;     (.write wrtr (str l "\n"))))
+
+                  ;; - Can we spare us filtering away links/nodes from nodes/links.
+                  ;; YES!
+                  ;; (println "Writing out nodes.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                  ;;   (doseq [l (nmps)] ;; nmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  ;; (println "Writing out links.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                  ;;   (doseq [l (lmps)] ;; lmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  
+                  ;; - Based  on the  above, it  should  be possible  to make  a
+                  ;;   single call and store the two lambdas in a map... try.
+                  ;; YES, so we can keep the original call structure...
+                  ;; (println "Writing out nodes.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
+                  ;;   (doseq [l ((:nodes mps))] ;; nmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  ;; (println "Writing out links.")
+                  ;; (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
+                  ;;   (doseq [l ((:links mps))] ;; lmps
+                  ;;     (.write wrtr (str l "\n"))))
+                  
+                  ;; - After all it may not be  a problem to have both links and
+                  ;;   nodes from  the same file. Try  to restore and see  if it
+                  ;;   all still works.
+                  ;; NEED non-normalized example from large dataset. Also try
+                  ;; creating two classes from same file... Naaa, useless...
+                  
+                  ;; - Reintegrate utils  for creating  the EPGM and  saving it,
+                  ;;   check memory usage.
+
+                  ;; 6.8GB for creating the graph with the short dataset.
+                  ;; Climbs up to 8 trying to write and crashes on Utils writer.
+                  ;; Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+                  ;; at java.util.Arrays.copyOf(Arrays.java:3332)  <------
+                  ;; at java.lang.AbstractStringBuilder.ensureCapacityInternal(AbstractStringBuilder.java:124)
+                  ;; at java.lang.AbstractStringBuilder.append(AbstractStringBuilder.java:448)
+                  ;; at java.lang.StringBuilder.append(StringBuilder.java:136)
+                  ;; at java.lang.StringBuilder.append(StringBuilder.java:76)
+                  ;; at java.lang.AbstractStringBuilder.append(AbstractStringBuilder.java:484)
+                  ;; at java.lang.StringBuilder.append(StringBuilder.java:166)
+                  ;; at java.util.StringJoiner.add(StringJoiner.java:185)
+                  ;; at java.util.stream.Collectors$$Lambda$2/1986912941.accept(Unknown Source)
+                  ;; at java.util.stream.ReduceOps$3ReducingSink.accept(ReduceOps.java:169)
+                  ;; at java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:193)
+                  ;; at java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1382)
+                  ;; at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:481)
+                  ;; at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:471)
+                  ;; at java.util.stream.ReduceOps$ReduceOp.evaluateSequential(ReduceOps.java:708)
+                  ;; at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+                  ;; at java.util.stream.ReferencePipeline.collect(ReferencePipeline.java:499)
+                  ;; at sh.serene.stellarutils.io.impl.local.LocalWriter.json(LocalWriter.java:101) <-----
+                  ;; ...
                   ;;
-                  (println "Writing out nodes.")
-                  (with-open [wrtr (io/writer "/home/ubuntu/nodes.txt")]
-                    (doseq [l nmps]
-                      (.write wrtr (str l "\n"))))
+                  ;; So, avoiding the actual insertion of nodes/links in the graph, memory stays
+                  ;; constant at 1GB for nodes, then goes to 4GB for links... what the???
+                  ;; Try moving the populate lambdas out and fix the map doall...
+                  (let [out-file (str "/tmp/" lab)
+                        graph (populate-graph (:nodes mps) (:links mps) lab)]
+                    ;; (println (mm/measure graph))
+                    (print "Press Enter to start writing...")
+                    (flush)
+                    (read-line)
+                    (if (write-graph-to-json graph out-file)
+                      (println (str "Saved EPGM graph to " out-file))
+                      (do (println (str "I/O error saving graph to " out-file))
+                          (utils/exit 1))))
 
-                  (println "Writing out links.")
-                  (with-open [wrtr (io/writer "/home/ubuntu/links.txt")]
-                    (doseq [l lmps]
-                      (.write wrtr (str l "\n"))))
+                  
+                  ;; - Lower priority: understand where  the head was being held
+                  ;;   and which rule/cases apply for receiving/using lazy seqs.
+
+
+
 
                   
                   ;;
