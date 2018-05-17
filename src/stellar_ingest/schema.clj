@@ -233,7 +233,7 @@
   [m]
   (let [smap (into {} (map (fn [x] {(name (key x)) (val x)}) m))
         jmap (Properties/create)]
-    (doall
+    (dorun
      (map (fn [x] (.add jmap (first x) (second x))) smap))
     (.getMap jmap)))
 
@@ -285,6 +285,43 @@
            (for [l dat] (apply-all-link-mappings scm l))))
   )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Helper  functions to  populate  the  graph. The  final  graph  consists of  a
+;; StellarGraphBuffer object. The  ingestor transforms the input  data into lazy
+;; sequences of intermediate objects (maps)  that represent the nodes and edges,
+;; as defined in the schema.
+
+(defn- populate-graph-nodes-fn [graph]
+  (fn [v]
+    (let [label (:label v)
+          propm (:props v)
+          propj (clj-map-to-properties propm)
+          oldid (:__id propm)
+          newid (str label oldid)]
+      (try
+        (.addVertex graph newid label propj)
+        ;; (println (str "Node: " newid))
+        (catch Exception e
+          (str "caught exception: " (.getMessage e)))
+        (finally nil)))))
+
+(defn- populate-graph-links-fn [graph]
+  (fn [e]
+    (let [label (:label e)
+          propm (:props e)
+          propj (clj-map-to-properties propm)
+          oldid (:__id propm)
+          newid (str label oldid)
+          src-orig (str (:src-label e) (:src-val e))
+          dst-orig (str (:dst-label e) (:dst-val e))]      
+      (try
+        (.addEdge graph newid src-orig dst-orig label propj)
+        ;; (println (str "Link: " newid))
+        (catch Exception ex (str "caught exception: " (.getMessage ex)))
+        (finally nil)
+        ))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 
@@ -315,46 +352,27 @@
         grbef (new LocalBackEndFactory)
         ;; Create and empty graph, that will be populated element-wise.
         graph (.createGraph grbef gl (.getMap (Properties/create)))]
+    
     ;; Process all nodes.
-    (do
-      (dorun (map
-              (fn [v] (let [label (:label v)
-                            props (clj-map-to-properties (:props v))
-                            oid (str label (:__id (:props v)))]
-                        {:orig (str label oid)
-                         :graph (try
-                                  (.addVertex graph oid label props)
-                                  ;; (println (str "Node: " oid))
-                                  (catch Exception e (str "caught exception: " (.getMessage e)))
-                                  (finally nil))}))
-              (vs)))
+    (dorun (map (populate-graph-nodes-fn graph) (vs)))
+    (print "Nodes created. Press Enter to start creating links...")
+    (flush)
+    (read-line)
 
-      (print "Nodes created. Press Enter to start creating links...")
-      (flush)
-      (read-line)
+    ;; Process all links.
+    (dorun (map (populate-graph-links-fn graph)
+                (map #(if (nil? (get-in %1 [:props :__id]))
+                        (assoc-in %1 [:props :__id] %2)
+                        %1)
+                     (es) (range))))
 
-      ;; ;; After all nodes are created and appended, do the same with links.
-      (dorun (map
-              (fn [ed] (let [e (val ed)
-                             label (:label e)
-                             src-orig (str (:src-label e) (:src-val e))
-                             dst-orig (str (:dst-label e) (:dst-val e))
-                             edgeid (str (key ed))]
-                         {:label label :src src-orig :dst dst-orig :status
-                          (try
-                            (.addEdge graph edgeid src-orig dst-orig label (.getMap (Properties/create)))
-                            ;; (println (str "Link: " edgeid))
-                            (catch Exception e (str "caught exception: " (.getMessage e)))
-                            (finally nil)
-                            )}))
-              ;; Add sequential numeric IDs to make the Utils happy.
-              ;; range with no parms does [0..] and zipmap takes as many as shorter seq.
-              (zipmap (range) (es))))
-      
-      ;; Return the  Graph. If this is  commented out, the edge  lookup table is
-      ;; returned, useful for debugging edge construction.
-      graph
-      )))
+    ;; FILIPPO: check if I can move the above addition of IDs...
+    ;; FILIPPO: edges are not being written to EPGM???
+    ;; FILIPPO: utils take >10GB for this small dataset: move to spark/hbase
+    ;; FILIPPO: measure ingestor bandwidth and try to improve.
+    
+    ;; Return the graph.
+    graph))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
