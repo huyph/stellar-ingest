@@ -299,12 +299,17 @@
           oldid (:__id propm)
           newid (str label oldid)]
       (try
+        (println (str "Node: " v))
+        ;; (println (str "Adding node: " newid))
+        ;; (println (str "Created node: "
         (.addVertex graph newid label propj)
-        ;; (println (str "Node: " newid))
+        ;; ))
         (catch Exception e
           (str "caught exception: " (.getMessage e)))
         (finally nil)))))
 
+;; PROBLEM: utils look for __id in nodes, to link to edges. I must modify __id
+;; to also include the label... how was I doing it before...
 (defn- populate-graph-links-fn [graph]
   (fn [e]
     (let [label (:label e)
@@ -315,9 +320,16 @@
           src-orig (str (:src-label e) (:src-val e))
           dst-orig (str (:dst-label e) (:dst-val e))]      
       (try
-        (.addEdge graph newid src-orig dst-orig label propj)
+        (println (str "Link: " e))
+        ;; (println (str "Created node: "
+        ;;               (.addEdge graph newid src-orig dst-orig label propj)))
+        ;; (println (str "Adding link: " src-orig " -- " dst-orig))
+        ;; (println (str "Created link: "
+        (.addEdge graph newid src-orig dst-orig label (.getMap (Properties/create)))
+        ;; ))
         ;; (println (str "Link: " newid))
-        (catch Exception ex (str "caught exception: " (.getMessage ex)))
+        (catch Exception ex
+          (println (str "caught exception: " (.getMessage ex))))
         (finally nil)
         ))))
 
@@ -355,10 +367,9 @@
     
     ;; Process all nodes.
     (dorun (map (populate-graph-nodes-fn graph) (vs)))
-    (print "Nodes created. Press Enter to start creating links...")
-    (flush)
-    (read-line)
-
+    ;; (print "Nodes created. Press Enter to start creating links...")
+    ;; (flush)
+    ;; (read-line)
     ;; Process all links.
     (dorun (map (populate-graph-links-fn graph)
                 (map #(if (nil? (get-in %1 [:props :__id]))
@@ -367,7 +378,6 @@
                      (es) (range))))
 
     ;; FILIPPO: check if I can move the above addition of IDs...
-    ;; FILIPPO: edges are not being written to EPGM???
     ;; FILIPPO: utils take >10GB for this small dataset: move to spark/hbase
     ;; FILIPPO: measure ingestor bandwidth and try to improve.
     
@@ -390,6 +400,14 @@
   ;;     .write
   ;;     (.gdf path))
   )
+
+
+;; graphs.json:  {"data":{},"meta":{"label":"gtest"},"id":"F4923B34BEB7421D9D39B3D72C5C1EBD"}
+;; vertices.json:  {"data":{"address":"626 Macquarie St - Sydney NSW 2000","gender":"M","year":"1990","__id":"169918","name":"user000000169918"},"meta":{"graphs":["F4923B34BEB7421D9D39B3D72C5C1EBD"],"label":"User"},"id":"F5854A93B1BE4681B386909A7C007C02"}
+;; edges.json:  {"data":{},"meta":{"graphs":["F4923B34BEB7421D9D39B3D72C5C1EBD"],"label":"isfriendwith"},"id":"00F384E828EA49DDB127730F09800981","source":"9A5A18D171BA4965BAA3A91A816C38CF","target":"0AD77C8CDD004DE3863D26C39DEFD675"}
+;;
+;; Node: {:label "User", :id "0", :props {:name "user000000000000", :address "734 Church St - Sydney NSW 2000", :gender "M", :year "1980", :__id "0"}}
+;; Link: {:label "isfriendwith", :src-label "User", :src-col "user1", :dst-label "User", :dst-col "user2", :src-val "84978", :dst-val "84013", :props {:__id 4847561}}
 
 (defn write-graph-to-json
   "Extract a graph  collection for the corresponding builder  object and write
@@ -627,6 +645,13 @@
 ;; (write-graph-to-gdf graph (str "/tmp/" glabel ".gdf"))
 ;; (write-graph-to-json graph (str "/tmp/" glabel ".json"))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(comment
+  (def ss (core/file-line-parse-seq "/home/ubuntu/CSIRO/DATA/Stellar/Ingestor/livejournal/users.csv"))
+  
+)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Scratch
 ;;
@@ -642,6 +667,9 @@
 ;; date; java -cp ~/stellar-ingest-0.1.1-SNAPSHOT-standalone.jar stellar_ingest.schema; date
 ;; top -b -p $(ps aux|grep "java -cp"|grep -v grep|sed 's/\t/ /g;s/  */ /g'|cut -d" " -f2) 2>&1|tee mem.log
 ;; top -Hb -p $(ps aux|grep "java -cp"|grep -v grep|sed 's/\t/ /g;s/  */ /g'|cut -d" " -f2) 2>&1|tee mem.log
+;;
+;; export CIDPID=$(ps aux|grep cider|grep java|grep -v wagon|sed 's/  */ /g'|cut -d" " -f2)
+;; 
 (defn -main [& args]
   (println "Starting ingest...")
   (let [;;scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json"
@@ -893,9 +921,9 @@
                   (let [out-file (str "/tmp/" lab)
                         graph (populate-graph (:nodes mps) (:links mps) lab)]
                     ;; (println (mm/measure graph))
-                    (print "Press Enter to start writing...")
-                    (flush)
-                    (read-line)
+                    ;; (print "Press Enter to start writing...")
+                    ;; (flush)
+                    ;; (read-line)
                     (if (write-graph-to-json graph out-file)
                       (println (str "Saved EPGM graph to " out-file))
                       (do (println (str "I/O error saving graph to " out-file))
