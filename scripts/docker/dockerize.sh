@@ -71,7 +71,7 @@ logger() {
 info()  { local prefix="${g} Info:${x} " ; logger "$@" ; }
 warn()  { local prefix="${y} Warn:${x} " ; logger "$@" ; }
 error() { local prefix="${r}Error:${x} " ; logger "$@" ; }
-fatal() { local prefix="${r}Fatal:${x} " ; logger "$@" ; exit 1 ; }
+fatal() { local prefix="${r}Fatal:${x} " ; logger "$@" ; }
 debug() {
     [ -z "$verbose" ] || {
         local prefix="${b}Debug:${x} "
