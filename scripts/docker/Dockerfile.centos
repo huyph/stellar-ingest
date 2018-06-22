@@ -1,0 +1,24 @@
+FROM centos:7
+
+COPY stellar-ingest-*-standalone.jar /opt/stellar-ingest/
+
+RUN yum update \
+      && yum -y upgrade \
+      && yum -y --setopt=tsflags=nodocs install java-1.8.0-openjdk-headless \
+      && yum clean all \
+      && mkdir -p /opt/stellar-ingest/examples \
+      && ln -s /opt/stellar-ingest/stellar-ingest-*-standalone.jar /opt/stellar-ingest/stellar-ingest.jar \
+      && chmod -R o+rX /opt/stellar-ingest
+
+# Never run as root
+USER 1000
+
+# Ingestor REST port
+EXPOSE 3000
+
+# Interpret relative paths coming from REST requests as being based here
+WORKDIR /opt/stellar/data
+
+# By default run the REST interface namespace
+ENTRYPOINT ["/usr/bin/java", "-cp", "/opt/stellar-ingest/stellar-ingest.jar"]
+CMD ["stellar_ingest.rest"]
