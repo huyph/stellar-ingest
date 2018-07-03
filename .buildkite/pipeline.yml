@@ -1,0 +1,21 @@
+steps:
+  - label: ":clojure:"
+    command:
+      - ".buildkite/script.sh"
+    plugins:
+      docker#v1.3.0:
+        image: "clojure"
+    branches: "feature/* release/* hotfix/*"
+
+  - wait: ~
+    continue_on_failure: true
+
+  - label: "push logs"
+    trigger: "buildkite-logger"
+    async: true
+    build:
+      env:
+        LOGGER_PIPELINE_SLUG: "${BUILDKITE_PIPELINE_SLUG}"
+        LOGGER_BUILD_NUMBER: "${BUILDKITE_BUILD_NUMBER}"
+        LOGGER_BRANCH: "${BUILDKITE_BRANCH}"
+        LOGGER_SLACK_CHANNEL: "@denis.khoshaba"
