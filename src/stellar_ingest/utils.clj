@@ -191,12 +191,78 @@
   ;; Take parents that are equal to child or for which child is a shorthand.
   (filter #(>= (check-path-shorthand child %) 0) parents))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Logging and file writing support
 
+;; Logging transducer. TODO, make more configurable:
+;; - have defaults for all parameters
+;; - specify count start
+;; - replace name with a function that takes n and generates the message
+;; - turn into a macro so that one can pass log/info etc. without wrapping.
+(defn element-log-tran
+  "
+  Build  a logging  transducer, that  can be  transparently composed  with other
+  transducers and prints configurable progress  messages.  Parameter 'logf' is a
+  single-argument log  writing function  e.g.  println.  A  log message  will be
+  printed every 'step' elements. Messages will refer to the elements as 'name'.
+  "
+  [logf  ;; A single-argument log writing function, e.g. println.
+   step  ;; Write log every step elements.
+   name] ;; Name of elements to be reported in log, e.g. "nodes".
+  (fn [rf]
+    ;; Keep track of logged elements.
+    (let [n (atom 0)]
+      (fn
+        ([])
+        ([res]
+         (logf (str "Processed " @n " " name "."))
+         (rf res))
+        ([res inp]
+         (swap! n inc)
+         (if (= 0 (mod @n step))
+           (logf (str "Processed " @n " " name ".")))
+         (rf res inp))))))
 
+;; Writing transducer.
+;; TODO: write a more generic output transducer and try to merge writing and logging.
+(defn writing-tran
+  "
+  Build  a writing  transducer, that  can be  transparently composed  with other
+  transducers and writes all elements that go through it, calling write function
+  'wf' on each of them.
+  "
+  [wf] ;; A single parameter write function.
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([res] (rf res))
+      ([res inp]
+       (wf inp)
+       (rf res inp)))))
 
-
-
-
-
-
-
+;; Debug  transducer.  To  be  used  when  developing  and  playing  around,  it
+;; visualises the transducer calls, producing a trace. E.g.:
+;;
+;; > (transduce debug-tran conj [1 2 3])
+;; 2: [[] 1] --> (clojure.core$conj__4345@1625ad16 [] 1)
+;; 2: [[1] 2] --> (clojure.core$conj__4345@1625ad16 [1] 2)
+;; 2: [[1 2] 3] --> (clojure.core$conj__4345@1625ad16 [1 2] 3)
+;; 1: [[1 2 3]] --> (clojure.core$conj__4345@1625ad16 [1 2 3])
+(defn debug-tran
+  "
+  Just something useful when debugging and playing around with transducers. This
+  transducer can be  transparently composed with others and will  print its call
+  trace and parameter values.
+  "
+  []
+  (fn [rf]
+    (fn
+      ([]
+       (println (str "0: [] --> (" rf ")"))
+       (rf))
+      ([res]
+       (println (str "1: [" res "] --> (" rf " " res ")"))
+       (rf res))
+      ([res inp]
+       (println (str "2: [" res " " inp "] --> (" rf " " res " " inp ")"))
+       (rf res inp)))))
