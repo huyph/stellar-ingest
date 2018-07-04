@@ -11,11 +11,4 @@ steps:
     continue_on_failure: true
 
   - label: "push logs"
-    trigger: "buildkite-logger"
-    async: true
-    build:
-      env:
-        LOGGER_PIPELINE_SLUG: "${BUILDKITE_PIPELINE_SLUG}"
-        LOGGER_BUILD_NUMBER: "${BUILDKITE_BUILD_NUMBER}"
-        LOGGER_BRANCH: "${BUILDKITE_BRANCH}"
-        LOGGER_SLACK_CHANNEL: "@denis.khoshaba"
+    command: .buildkite/postlogs.sh "@denis.khoshaba"
