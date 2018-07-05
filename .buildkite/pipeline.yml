@@ -10,5 +10,5 @@ steps:
   - wait: ~
     continue_on_failure: true
 
-  - label: "push logs"
-    command: .buildkite/postlogs.sh "@denis.khoshaba"
+  - label: ":console: push logs"
+    command: .buildkite/pushlogs.sh "@denis.khoshaba"
