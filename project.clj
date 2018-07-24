@@ -38,7 +38,12 @@
                  ;; File system library
                  [me.raynes/fs "1.4.6"]
                  ;; Measure memory occupation
-                 [com.clojure-goes-fast/clj-memory-meter "0.1.0"]]
+                 [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
+                 ;; HDFS access
+                 [org.apache.hadoop/hadoop-client "2.8.4"
+                  :exclusions [net.minidev/json-smart]]
+                 [org.apache.hadoop/hadoop-hdfs "2.8.4"
+                  :exclusions [log4j/log4j]]]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
             ;; Print version taken from project.clj
