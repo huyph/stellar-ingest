@@ -73,6 +73,10 @@
    )
   (:gen-class))
 
+;; hadoop.rpc.socket.factory.class.default=org.apache.hadoop.net.SocksSocketFactory
+;; # this configure assumes the SOCKS proxy is opened on local port 6666
+;; hadoop.socks.server=localhost:6666
+
 (defn connect-to-hdfs
   "Give a HDFS  URI as string, like \"hdfs://hostname:8020\" return  a file system
    handler that can be used to operate on HDFS."
@@ -89,6 +93,13 @@
           (subs (str (doto org.apache.hadoop.fs.LocalFileSystem
                        .getClass
                        .getName)) 6))
+
+    ;; (.set conf "hadoop.rpc.socket.factory.class.default"
+    ;;       (subs (str (doto org.apache.hadoop.net.SocksSocketFactory
+    ;;                    .getClass
+    ;;                    .getName)) 6))
+    ;; (.set conf "hadoop.socks.server" "localhost:6666")
+    
     (System/setProperty "HADOOP_USER_NAME" "hdfs")
     (System/setProperty "hadoop.home.dir" "/")
     (FileSystem/get (URI/create hdfsuri) conf)))
@@ -97,17 +108,30 @@
 
   (def hdfsuri "hdfs://127.0.0.1:8020")
   (def hdfsuri "hdfs://localhost:8020")
-  (def hdfsuri "hdfs://13.211.142.240:8020")
-  
+  (def hdfsuri "hdfs://13.54.70.150:8020")
+
   (def fs (connect-to-hdfs hdfsuri))
   (def wpath (Path. (str hdfsuri "/user/hdfs/ingest.txt")))
-  (def wpath (Path. (str "" "/user/hdfs/ingest.txt")))
+  ;; (def wpath (Path. (str "" "/user/hdfs/ingest.txt")))
   (def wstream (.create fs wpath))
   ;; (.getWorkingDirectory fs)
   ;; #object[org.apache.hadoop.fs.Path 0x4e77d0ba "hdfs://127.0.0.1:8020/user/hdfs"]
   (let [now (str (java.util.Date.))]
     (println (str "Writing: " now))
     (.writeBytes wstream now))
+    (.hsync wstream))
+    (.hflush wstream))
+    (.close wstream))
+
+;; WAIT! This worked on EMR:
+;; ssh -N -i ~/Keys/filippo-dev-machines.pem -L 8020:ip-10-0-255-79.ap-southeast-2.compute.internal:8020 hadoop@13.54.70.150
+;;
+;; It's similar to what I had on Ansible for a while: I can create the output file
+;; but not write, but that's OK!!! HDFS is not a remote copy protocol!!!
+;;
+;; https://stackoverflow.com/questions/32841892/is-it-possible-to-write-to-a-remote-hdfs
+;;
+;; But other examples seem to contradict... maybe I need to make the datanode accessible...
 
 
   ;; CompilerException java.io.EOFException: End of File Exception between local host is: "liquid-ev/127.0.1.1"; destination host is: "localhost":8020; : java.io.EOFException; For more details see:  http://wiki.apache.org/hadoop/EOFException, compiling:(form-init6923650512603154354.clj:103:16) 
@@ -118,6 +142,11 @@
   ;; (org.apache.hadoop.util.VersionInfo/getVersion)
   
   ) ;; End comment
+
+;; Some info on using EMR via port forwarding.
+;; https://docs.spring.io/spring-hadoop/docs/1.0.x/reference/html/appendix-amazon-emr.html
+
+
 
 ;; YES! This works when running directly on the master, with the private DNS hostname.
 ;;
