@@ -38,7 +38,10 @@
                  ;; File system library
                  [me.raynes/fs "1.4.6"]
                  ;; Measure memory occupation
-                 [com.clojure-goes-fast/clj-memory-meter "0.1.0"]]
+                 [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
+                 ;; Spark bindings
+                 [yieldbot/flambo "0.8.2"]
+                 ]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
             ;; Print version taken from project.clj
@@ -64,7 +67,10 @@
   ;; Mac OSX seems to require explicit class list. Investigate.
   ;; :jmv-opts ^:replace ["-server" "-Xms128m" "-Xmx8g"]
   :jmv-opts ["-Xmx8g"]
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}
+             :dev {:aot :all}
+             :provided {:dependencies
+                        [[org.apache.spark/spark-core_2.11 "2.2.0"]]}})
 
 ;; Consider adding these in a testing profile (check versions):
 ;;   :profiles
