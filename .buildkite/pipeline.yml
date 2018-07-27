@@ -5,7 +5,6 @@ steps:
     plugins:
       docker#v1.3.0:
         image: "clojure"
-        user: "1000"
     branches: "feature/* release/* hotfix/*"
 
   - wait
