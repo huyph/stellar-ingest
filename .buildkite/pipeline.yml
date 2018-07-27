@@ -10,7 +10,7 @@ steps:
   - wait
 
   - label: ":console:"
-    command: "buildkite-agent artifact download target/uberjar/*.jar ./ --step ":clojure:" --build ${BUILDKITE_BUILD_ID} && ls -la"
+    command: "buildkite-agent artifact download target/uberjar/*.jar ./ --step ':clojure:' --build ${BUILDKITE_BUILD_ID} && ls -la"
 
     #- wait: ~
     #continue_on_failure: true
