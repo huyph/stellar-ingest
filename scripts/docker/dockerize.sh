@@ -82,7 +82,7 @@ debug() {
 ################################################################################
 # Utilities
 
-# Get the repository slug (e.g. data61/stellar-py) from git configuration. 
+# Get the repository slug (e.g. data61/stellar-py) from git configuration.
 # Parms: none
 # Return: repository slug
 get_slug() {
@@ -96,26 +96,45 @@ get_slug() {
     # Running in a non-git directory just returns no origin.
     elif [ -z "$orig" ]; then
         fatal "This does not seem to be a git repository."
-        return 1        
+        return 1
     fi
     # info "Found git origin: $orig.git"
     # Parse the origin URL. Instead of just pulling out the slug, check that the
     # data make sense for a Stellar module, otherwise return error.
     local owner project
-    base=$(echo $orig|cut -d"/" -f1-3) ||
-        { fatal "Error parsing git repository origin."; return 1; }
-    owner=$(echo $orig|cut -d"/" -f4) ||
-        { fatal "Error parsing git repository origin."; return 1; }
-    project=$(echo $orig|cut -d"/" -f5) ||
-        { fatal "Error parsing git repository origin."; return 1; }
-    if [[ ! $base =~ https://([-a-zA-Z0-9]+@)?github.com ]] ||
-       [[ ! $owner = "data61" ]] ||
-       [[ ! $project =~ ^stellar- ]]; then
-        fatal "This does not seem to be an official Stellar repository."
-        return 1
-    fi
-    # Return the repo slug.
-    echo "$owner/$project"
+
+    if [[ "$orig" =~ ^git@github.com ]] ; then
+       base=$(echo $orig|cut -d":" -f1) ||
+           { fatal "Error parsing git repository origin."; return 1; }
+       owner=$(echo $orig|cut -d":" -f2 | cut -d"/" -f1) ||
+           { fatal "Error parsing git repository origin."; return 1; }
+       project=$(echo $orig|cut -d"/" -f2) ||
+           { fatal "Error parsing git repository origin."; return 1; }
+       if  [[ ! $base =~ git@github.com ]] ||
+           [[ ! $owner = "data61" ]] ||
+           [[ ! $project =~ ^stellar- ]]; then
+             fatal "This does not seem to be an official Stellar repository."
+             return 1
+       fi
+       # Return the repo slug.
+       echo "$owner/$project"
+
+   else
+       base=$(echo $orig|cut -d"/" -f1-3) ||
+           { fatal "Error parsing git repository origin."; return 1; }
+       owner=$(echo $orig|cut -d"/" -f4) ||
+           { fatal "Error parsing git repository origin."; return 1; }
+       project=$(echo $orig|cut -d"/" -f5) ||
+           { fatal "Error parsing git repository origin."; return 1; }
+       if [[ ! $base =~ https://([-a-zA-Z0-9]+@)?github.com ]] ||
+          [[ ! $owner = "data61" ]] ||
+          [[ ! $project =~ ^stellar- ]]; then
+           fatal "This does not seem to be an official Stellar repository."
+           return 1
+       fi
+       # Return the repo slug.
+       echo "$owner/$project"
+   fi
 }
 
 # Get the project identifier for the repository slug (e.g. stellar-ingest)
