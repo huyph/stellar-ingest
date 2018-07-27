@@ -9,15 +9,13 @@ echo ""; echo ""; echo "branch: $BUILDKITE_BRANCH, version: $INGEST_VERSION, PR:
 #if [ "$BUILDKITE_BRANCH" == "" ]; then
 	if [[ $INGEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
 		echo "Publishing snapshot from devel branch.";
-		#lein deploy;
-		lein uberjar;
+		lein deploy;
+		lein deploy-uberjar;
 		#./scripts/docker/dockerize.sh;
 	else
 		echo "ERROR invalid snapshot version."; exit 1;
 	fi;
 #fi
-
-ls -la
 
 if [ -n "$BUILDKITE_TAG"  ]; then
 	if [ "$BUILDKITE_TAG" == "v$INGEST_VERSION" ]; then
