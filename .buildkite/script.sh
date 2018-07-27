@@ -29,3 +29,5 @@ if [ -n "$BUILDKITE_TAG"  ]; then
 		echo "ERROR version/tag mismatch $INGEST_VERSION/$TRAVIS_TAG"; exit 1;
 	fi;
 fi
+
+buildkite-agent artifact upload target/uberjar/*.jar

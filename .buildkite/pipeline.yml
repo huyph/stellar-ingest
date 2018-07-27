@@ -5,15 +5,16 @@ steps:
     plugins:
       docker#v1.3.0:
         image: "clojure"
+        user: "1000"
     branches: "feature/* release/* hotfix/*"
 
   - wait
 
   - label: ":console:"
-    command: "ls -la"
+    command: "buildkite-agent artifact download target/uberjar/*.jar --step ${BUILDKITE_JOB_ID} --build ${BUILDKITE_BUILD_ID} && ls -la"
 
-  - wait: ~
-    continue_on_failure: true
+    #- wait: ~
+    #continue_on_failure: true
 
-  - label: ":console: push logs"
-    command: .buildkite/pushlogs.sh "@denis.khoshaba"
+    #- label: ":console: push logs"
+    #command: .buildkite/pushlogs.sh "@denis.khoshaba"
