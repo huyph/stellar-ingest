@@ -30,4 +30,4 @@ if [ -n "$BUILDKITE_TAG"  ]; then
 	fi;
 fi
 
-buildkite-agent artifact upload target/uberjar/*.jar
+buildkite-agent artifact upload "target/uberjar/*.jar"
