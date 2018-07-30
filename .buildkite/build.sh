@@ -2,6 +2,7 @@
 set -euo pipefail
 
 buildkite-agent artifact download target/uberjar/*.jar ./ --step ':clojure: build' --build ${BUILDKITE_BUILD_ID}
+mv target/uberjar/stellar-ingest-*-standalone.jar .
 
 INGEST_VERSION=$(buildkite-agent meta-data get "ingest-version")
 echo "$INGEST_VERSION"
