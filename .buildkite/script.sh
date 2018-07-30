@@ -29,3 +29,4 @@ if [ -n "$BUILDKITE_TAG"  ]; then
 fi
 
 buildkite-agent artifact upload "target/uberjar/*.jar"
+buildkite-agent meta-data set "ingest-version" "$INGEST_VERSION"

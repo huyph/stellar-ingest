@@ -14,7 +14,7 @@ COPY stellar-ingest-*-standalone.jar /opt/stellar-ingest
 RUN ln -s /opt/stellar-ingest/stellar-ingest-*-standalone.jar /opt/stellar-ingest/stellar-ingest.jar
 
 # Copy example data.
-COPY imdb_small.csv /opt/stellar-ingest/examples
+#COPY imdb_small.csv /opt/stellar-ingest/examples
 
 # Make sure program dirs are readable by everyone.
 RUN chmod -R o+rX /opt/stellar-ingest
