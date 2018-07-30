@@ -22,7 +22,7 @@ if [ -n "$BUILDKITE_TAG"  ]; then
 		echo "Publishin release version $INGEST_VERSION with tag $TRAVIS_TAG";
 		lein deploy;
 		lein deploy-uberjar;
-		./scripts/docker/dockerize.sh;
+#		./scripts/docker/dockerize.sh;
 	else
 		echo "ERROR version/tag mismatch $INGEST_VERSION/$TRAVIS_TAG"; exit 1;
 	fi;

@@ -1,8 +1,5 @@
-env:
-  INGEST_VERSION: ""
-
 steps:
-  - label: ":clojure:"
+  - label: ":clojure: build"
     command:
       - ".buildkite/script.sh"
     plugins:
@@ -10,11 +7,6 @@ steps:
         image: "clojure"
     branches: "feature/* release/* hotfix/*"
 
-
-  - wait
-
-  - label: ":console:"
-    command: "buildkite-agent artifact download target/uberjar/*.jar ./ --step ':clojure:' --build ${BUILDKITE_BUILD_ID} && ./scripts/docker/dockerize.sh"
 
   - wait
 
