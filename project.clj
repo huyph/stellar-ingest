@@ -20,6 +20,7 @@
                  ;; Kafka streams support.
                  [org.apache.kafka/kafka_2.11 "0.11.0.0"]
                  [org.apache.kafka/kafka-clients "0.11.0.0"]
+                 ;; [clj-kafka "0.2.8-0.8.1.1"]
                  ;; REST
                  [compojure "1.6.0"]
                  [ring/ring-defaults "0.3.1"]
@@ -41,6 +42,9 @@
                  [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
                  ;; Spark bindings
                  [yieldbot/flambo "0.8.2"]
+                 [org.apache.spark/spark-streaming_2.11 "2.2.0"]
+                 [org.apache.spark/spark-streaming-kafka-0-8_2.11 "2.2.0"]
+                 [org.apache.spark/spark-streaming-flume_2.11 "2.2.0"]
                  ]
   :plugins [;; Launch webserver with ring application from lein.
             [lein-ring "0.12.1"]
@@ -68,9 +72,10 @@
   ;; :jmv-opts ^:replace ["-server" "-Xms128m" "-Xmx8g"]
   :jmv-opts ["-Xmx8g"]
   :profiles {:uberjar {:aot :all}
-             :dev {:aot :all}
+             :dev {:aot [stellar-ingest.spark flambo.function]}
              :provided {:dependencies
-                        [[org.apache.spark/spark-core_2.11 "2.2.0"]]}})
+                        [[org.apache.spark/spark-core_2.11 "2.2.0"]
+                         ]}})
 
 ;; Consider adding these in a testing profile (check versions):
 ;;   :profiles

@@ -39,6 +39,7 @@
             ;;
             [flambo.conf :as conf]
             [flambo.api :as f]
+            [flambo.streaming :as st]
             [flambo.kryo :as k]
 
             )
@@ -78,11 +79,70 @@
 
 ;; spark.read.json("test.json", multiLine=True)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Streaming into Spark example
+
+(def c (-> (conf/spark-conf)
+           (conf/master "local")
+           (conf/app-name "flame_princess")))
 
 
 
 
+(do
 
+  (def c (-> (conf/spark-conf)
+             (conf/master "local[2]")
+             (conf/app-name "flame_princess")))
+
+  (def ssc (st/streaming-context c 2000))
+  
+  (def myst (st/socket-text-stream ssc "localhost" 9999))
+
+  (-> myst
+      ;; (st/flat-map (f/fn [l] (clojure.string/split l #" "))) ;; at this point we have our "line of text and stuff",
+      ;; so split it into words
+      ;; (st/map (f/fn [w] [w 1])) ;; and for each of those words, get a ["word" 1] pair
+      ;; (st/reduce-by-key-and-window (f/fn [x y] (+ x y)) (* 10 60 1000) 2000) ;; and reduce them
+      ;; by key on a sliding
+      ;; window
+      (st/flat-map (f/fn [l] l))
+      (st/print) ;; print out the results
+      (st/foreach-rdd (f/fn [x] (st/save-as-text-files "/tmp/filippo")))
+      ;; (st/save-as-text-files "/tmp/filippo")
+      )
+
+  (.start ssc)
+  ;; (.awaitTermination ssc)
+)
+
+(.stop ssc true true)
 
 ) ;; End comment
+
+(defn -main [& args]
+  (let [conf (-> (conf/spark-conf)
+                 (conf/master "local")
+                 (conf/app-name "streamtest"))
+        ssc (st/streaming-context conf 2000)
+        myst (st/socket-text-stream ssc "localhost" 9999)]
+        
+        (-> myst
+            (st/flat-map (f/fn [l] l))
+            (st/print))
+
+        (.start ssc)
+        (.awaitTermination ssc)))
+
+
+
+
+
+
+
+
+
+
+
+
 
