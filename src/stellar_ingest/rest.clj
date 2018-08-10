@@ -102,14 +102,16 @@
 (defn- ingestion-ok [url sid]
   (log/info (str "Sending OK to " url))
   (try (http/post url
-                  {:body (str "{\"sessionId\":\"" sid "\"}")})
+                  {:body (str "{\"sessionId\":\"" sid "\"}")
+                   :content-type "application/json"})
     (catch Exception e (log/info (.getMessage e)))))
 
 (defn- ingestion-abort [url sid reason]
   (log/info (str "Sending Error to " url))
   (try (http/post url
                   {:body (str "{\"sessionId\":\"" sid "\", "
-                              "\"reason\":\"" reason "\"}")})
+                              "\"reason\":\"" reason "\"}")
+                   :content-type "application/json"})
   (catch Exception e (log/info (.getMessage e)))))
 
 ;; Ingestion procedure.
