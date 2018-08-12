@@ -386,6 +386,46 @@
      :meta {:label label :graphs graphs}
      :data propm}))
 
+;; Transducer that  replaces original  node IDs with  UUIDs.  The  'nids' lookup
+;; table must  be an atom.  An alternative  could be the  macro with-local-vars,
+;; together with var-set.
+(defn reassign-node-id-trans
+  "Replace node  IDs with  UUIDs.  Argument  nids is an  atom containing  an empty
+  hashmap. When the whole node list had been processed, the hashmap will contain
+  the  original IDs  (string) as  keys, pointing  to the  respective UUIDs.  The
+  hashmap can be used as look-up-table to correctly reassing link IDs."
+  [nids]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([res] (rf res))
+      ([res inp]
+       (let [nid (java.util.UUID/randomUUID)]
+         ;; (println (str "Reassigning node ID: " (:id inp) " -> " nid))
+         (reset! nids (assoc @nids (:id inp) nid))
+         (rf res (assoc inp :id (str nid))))))))
+
+;; Transducer that  replaces original source and  target node IDs in  links with
+;; those contained in a lookup hashmap.
+(defn reassign-link-id-trans
+  "Replace  source  and  target  node  IDs  in links  with  those  from  the  nids
+  hashmap. The original  IDs are the keys  of the map, the new  IDs (the values)
+  are converted to string."
+  [nids]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([res] (rf res))
+      ([res inp]
+       (let [sid (get nids (:source inp))
+             tid (get nids (:target inp))]
+         ;; (println (str "Reassigning link source ID: " (:source inp) " -> " sid))
+         ;; (println (str "Reassigning link target ID: " (:target inp) " -> " tid))
+         (rf res (assoc inp
+                        :source (str sid)
+                        :target (str tid)
+                        :id (java.util.UUID/randomUUID))))))))
+
 ;; Actual native graph builder function.
 (defn populate-graph-native
   "
@@ -411,13 +451,14 @@
      ;; Add the graph ID to all edges and convert hash-maps to valid EPGM.
      :edges (eduction
              (comp (map (partial add-graph-id gid))
-                   (map node-map-to-epgm))
+                   (map link-map-to-epgm))
              es))))
 
 ;; Dispatch function, selects the graph backend, defaulting to Utils.
 (defn populate-graph
   ""
-  ([vs es gl] (populate-graph-utils vs es gl))
+  ;; ([vs es gl] (populate-graph-utils vs es gl))
+  ([vs es gl] (populate-graph-native vs es gl))
   ([vs es gl be]
    ;; The backend can be either a keyword selecting one of the ingestor built-in
    ;; backends (:native, :utils) or a function that does the job.
@@ -464,57 +505,71 @@
   Write  to  JSON  the  EPGM  graph, built  using  stellar-ingest  native  graph
   backend (see function populate-graph).
   "
-  [graph ;; Graph object.
-   path] ;; Directory for EPGM output.
-  ;; TODO: factor out common code (see  commented code below function), wrap I/O
-  ;; exceptions with eithers and fmap over the individual output files.
-  (and
-   ;; Check is output dir exists or create it.
-   (let [wd (clojure.java.io/file path)]
-     (if (or (.isDirectory wd)
-             (.mkdirs (clojure.java.io/file path)))
-       true
-       (do (log/error (str "Error creating EPGM output directory " path))
-           false)))
-   ;; Write graphs.
-   (try
-     (with-open [file (clojure.java.io/writer (str path "/graphs.json"))]
-       (let [wf #(do (.write file (json/generate-string %)) (.newLine file))]
-         (log/info (str (new java.util.Date) " - Starting graph ID writing."))
-         (transduce (comp (utils/writing-tran wf)
-                          (utils/element-log-tran #(log/info %) 250000 "graph IDs"))
-                    (constantly nil) nil
-                    (:graphs graph))
-         (log/info (str (new java.util.Date) " - Completed graph ID writing."))
-         true))
-     (catch Exception e (log/error (str "Error writing EPGM graphs: "
-                                        (.getMessage e))) false))
-   ;; Write nodes.
-   (try
-     (with-open [file (clojure.java.io/writer (str path "/nodes.json"))]
-       (let [wf #(do (.write file (json/generate-string %)) (.newLine file))]
-         (log/info (str (new java.util.Date) " - Starting node ingestion."))
-         (transduce (comp (utils/writing-tran wf)
-                          (utils/element-log-tran #(log/info %) 250000 "nodes"))
-                    (constantly nil) nil
-                    (:nodes graph))
-         (log/info (str (new java.util.Date) " - Completed node ingestion."))
-         true))
-     (catch Exception e (log/error (str "Error writing EPGM nodes: "
-                                        (.getMessage e))) false))
-   ;; Write links.
-   (try
-     (with-open [file (clojure.java.io/writer (str path "/links.json"))]
-       (let [wf #(do (.write file (json/generate-string %)) (.newLine file))]
-         (log/info (str (new java.util.Date) " - Starting link ingestion."))
-         (transduce (comp (utils/writing-tran wf)
-                          (utils/element-log-tran #(log/info %) 250000 "links"))
-                    (constantly nil) nil
-                    (:edges graph))
-         (log/info (str (new java.util.Date) " - Completed link ingestion."))
-         true))
-     (catch Exception e (log/error (str "Error writing EPGM links: "
-                                        (.getMessage e))) false))))
+  ([graph  ;; Graph object.
+    path   ;; Directory for EPGM output.
+    idpol] ;; Node ID policy (:keep, :uuid)
+   ;; Prepare the ID look up table, in case they are changed.
+   (let [nids (atom {})]
+     ;; TODO: factor out common code (see  commented code below function), wrap I/O
+     ;; exceptions with eithers and fmap over the individual output files.
+     (and
+      ;; Check is output dir exists or create it.
+      (let [wd (clojure.java.io/file path)]
+        (if (or (.isDirectory wd)
+                (.mkdirs (clojure.java.io/file path)))
+          true
+          (do (log/error (str "Error creating EPGM output directory " path))
+              false)))
+      ;; Write graphs.
+      (try
+        (with-open [file (clojure.java.io/writer (str path "/graphs.json"))]
+          (let [wf #(do (.write file (json/generate-string %)) (.newLine file))]
+            (log/info (str (new java.util.Date) " - Starting graph ID writing."))
+            (transduce (comp (utils/writing-tran wf)
+                             (utils/element-log-tran #(log/info %) 250000 "graph IDs"))
+                       (constantly nil) nil
+                       (:graphs graph))
+            (log/info (str (new java.util.Date) " - Completed graph ID writing."))
+            true))
+        (catch Exception e (log/error (str "Error writing EPGM graphs: "
+                                           (.getMessage e))) false))
+      ;; Write nodes.
+      (try
+        (with-open [file (clojure.java.io/writer (str path "/vertices.json"))]
+          (let [wf #(do (.write file (json/generate-string %)) (.newLine file))
+                id-tran (if (= idpol :uuid)
+                          (reassign-node-id-trans nids)
+                          (map identity))]
+            (log/info (str (new java.util.Date) " - Starting node ingestion."))
+            (transduce (comp id-tran
+                             (utils/writing-tran wf)
+                             (utils/element-log-tran #(log/info %) 250000 "nodes"))
+                       (constantly nil) nil
+                       (:nodes graph))
+            (log/info (str (new java.util.Date) " - Completed node ingestion."))
+            true))
+        (catch Exception e (log/error (str "Error writing EPGM nodes: "
+                                           (.getMessage e))) false))
+      ;; Write links.
+      (try
+        (with-open [file (clojure.java.io/writer (str path "/edges.json"))]
+          (let [wf #(do (.write file (json/generate-string %)) (.newLine file))
+                id-tran (if (= idpol :uuid)
+                          (reassign-link-id-trans @nids)
+                          (map identity))]
+            (log/info (str (new java.util.Date) " - Starting link ingestion."))
+            ;; (transduce (comp id-tran
+            (transduce (comp id-tran
+                             (utils/writing-tran wf)
+                             (utils/element-log-tran #(log/info %) 250000 "links"))
+                       (constantly nil) nil
+                       (:edges graph))
+            (log/info (str (new java.util.Date) " - Completed link ingestion."))
+            true))
+        (catch Exception e (log/error (str "Error writing EPGM links: "
+                                           (.getMessage e))) false)))))
+  ;; The default behaviour is to keep the original IDs.
+  ([graph path] (write-graph-to-json-native graph path :keep)))
 
 ;; Dispatch function, that selects the  EPGM JSON output backend, defaulting the
 ;; the Utils.
@@ -522,7 +577,8 @@
 ;; and the output backend should be selected automatically based on them.
 (defn write-graph-to-json
   ""
-  ([graph path] (write-graph-to-json-utils graph path))
+  ;; ([graph path] (write-graph-to-json-utils graph path))
+  ([graph path] (write-graph-to-json-native graph path))
   ([graph path be]
    ;; The backend can be either a keyword selecting one of the ingestor built-in
    ;; backends (:native, :utils) or a function that does the job.
@@ -530,10 +586,12 @@
      (apply be graph path)
      (if (= be :native)
        (write-graph-to-json-native graph path)
-       (if (= be :utils)
-         (write-graph-to-json-utils graph path)
-         (throw (new IllegalArgumentException
-                     (str "Unknown JSON output backend " be "."))))))))
+       (if (= be :native-uuid)
+         (write-graph-to-json-native graph path :uuid)
+         (if (= be :utils)
+           (write-graph-to-json-utils graph path)
+           (throw (new IllegalArgumentException
+                       (str "Unknown JSON output backend " be ".")))))))))
 
 ;; TODO: possible way of rewriting to avoid code duplication.
 ;;
@@ -742,7 +800,7 @@
       (if (either/right? graph)
         ;; Function write-graph-to-json creates intermediate  dirs if needed and
         ;; consumes all I/O exceptions. It returns status as boolean.
-        (if (write-graph-to-json (deref graph) out-file)
+        (if (write-graph-to-json (deref graph) out-file :native-uuid)
           (println (str "Saved EPGM graph to " out-file))
           (do (println (str "I/O error saving graph to " out-file))
               (utils/exit 1)))
@@ -761,8 +819,8 @@
   ;; Load and validate schema. Turn it into a project object.
   (do
     ;; (def scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal.json")
-    ;; (def scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal_head.json")
-    (def scm-file "/home/amm00b/CSIRO/WORK/Dev/Stellar/stellar-ingest-dev/resources/examples/imdb_norm/imdb_norm_schema.json")
+    (def scm-file "/home/amm00b/CSIRO/DATA/Stellar/Ingestor/livejournal/livejournal_head.json")
+    ;; (def scm-file "/home/amm00b/CSIRO/WORK/Dev/Stellar/stellar-ingest-dev/resources/examples/imdb_norm/imdb_norm_schema.json")
     (def scm (load-schema scm-file))
     (def scm (assoc scm :label "gtest"))
     (def scm (assoc scm :schema-file scm-file))
@@ -777,10 +835,11 @@
     (def lab (cats/fmap (comp :label second first) pro)))
   
   ;; Build a graph with the default native backend, i.e.  create EPGM maps.
-  (def graph ((cats/lift-m 3 populate-graph) nodes links lab))
+  (def graph ((cats/lift-m 4 populate-graph) nodes links lab (either/right :native)))
 
   ;; Write EPGM graph to directory, creating it if needed.
-  (time (write-graph-to-json (deref graph) "/tmp/mygraph"))
+  (time (write-graph-to-json (deref graph) "/tmp/mygraph" :native))
+  (time (write-graph-to-json (deref graph) "/tmp/mygraph" :native-uuid))
 
   ;; Deprecated: using the Utils backend.
   (def graph ((cats/lift-m 4 populate-graph) nodes links lab (either/right :utils)))
